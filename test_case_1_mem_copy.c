@@ -28,9 +28,6 @@ struct map_params {
     size_t size2;
 };
 
-
-static char uio_addr_buf[16], uio_size_buf[20];
-
 void print_buf(char* buf, int len)
 {
   printf("**************************************************************************************\r\n");
@@ -53,7 +50,8 @@ int read_uio_configs(struct map_params* params)
 {
     int uio_fd, addr_fd, size_fd;
     int uio_size;
-    void* uio_addr, *access_address; 
+    void* uio_addr, *access_address;
+    char uio_addr_buf[64], uio_size_buf[64];
 
     uio_fd = open(UIO_DEV, O_RDWR);
 
