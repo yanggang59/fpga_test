@@ -154,8 +154,8 @@ void* task1(void* arg)
     void* bar0 = params->addr0;
     int* val1_ref = bar0;
     int* val2_ref = val1_ref + 1;
-    volatile int val1;
-    volatile int val2;
+    int val1;
+    int val2;
 
     int g_count = 0;
     while(1)
@@ -173,7 +173,7 @@ void* task1(void* arg)
         val1 = *val1_ref = val1 + 1;
 		//printf("[Info] Thread 1 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
         while(*val2_ref != val2 + 1);
-        val2 = *val2_ref;
+        val2 = val2 + 1;
 		pthread_cond_signal(&cond2);
         if(++g_count > RUNNING_CYCLE_LIMITS) {
             pthread_mutex_unlock(&mutex);
@@ -193,8 +193,8 @@ void* task2(void* arg)
     void* bar2 = params->addr2;
     int* val1_ref = bar2;
     int* val2_ref = val1_ref + 1;
-    volatile int val2;
-    volatile int val1;
+    int val2;
+    int val1;
     
     int g_count = 0;
 
@@ -212,7 +212,7 @@ void* task2(void* arg)
 		val2 = *val2_ref = val2 + 1;
 		//printf("[Info] Thread 2 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
         while(*val1_ref != val1 + 1);
-        val1 = *val1_ref;
+        val1 = val1 + 1;
 		pthread_cond_signal(&cond1);
         if(++g_count > RUNNING_CYCLE_LIMITS) {
             pthread_mutex_unlock(&mutex);
