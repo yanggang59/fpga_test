@@ -9,93 +9,84 @@
 
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t producer_ready = PTHREAD_COND_INITIALIZER;
-pthread_cond_t consumer_ready = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
 
 int g_running_cycles = 0;
 void* g_mem = NULL;
 
-void* producer_task(void* arg)
+void* task1(void* arg)
 {
-    printf("[DEBUG] producer In \r\n");
-    void* bar0 = g_mem;
-    int* producer_ref = bar0;
-    int* consumer_ref = producer_ref + 1;
-    int producer_val_bak = 0;
-    int consumer_val_bak = 0;
-    *producer_ref = 0;
-    while(1) {
-        printf("[DEBUG] producer running \r\n");
-        if(++g_running_cycles > 1000) break;
-        printf("[DEBUG] producer tring to lock \r\n");
-        pthread_mutex_lock(&mutex);
-        printf("[DEBUG] producer lock , consumer = %d, consumer_bak = %d\r\n", *consumer_ref, consumer_val_bak);
-        while(*consumer_ref != consumer_val_bak + 1);
-        consumer_val_bak = *consumer_ref;
-        producer_val_bak = *producer_ref;
-        *producer_ref = producer_val_bak + 1;
-        printf("[DEBUG] producer unlock \r\n");
-        pthread_mutex_unlock(&mutex);
-        pthread_cond_signal(&producer_ready);
-        pthread_cond_wait(&consumer_ready, &mutex);
-    }
-    printf("[DEBUG] producer left \r\n");
+    int* val1_ref = g_mem;
+    int* val2_ref = val1_ref + 1;
+    volatile int val1 = *val1_ref;// = 1;
+    volatile int val2 = 0;
+    *val2_ref = 1;
+    while(1)
+	{
+		pthread_mutex_lock(&mutex);
+        //sleep(1);
+        /**
+        * inc area 1
+        */
+        val1 = *val1_ref = val1 + 1;
+		printf("[Info] Thread 1 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+        while(*val2_ref != val2 + 1);
+        val2 = *val2_ref;
+		pthread_cond_signal(&cond2);
+		pthread_cond_wait(&cond1,&mutex);
+		pthread_mutex_unlock(&mutex);
+	}
+    printf("[DEBUG] Task 1 left \r\n");
+    return NULL;
 }
 
 
-void* consumer_task(void* arg)
+void* task2(void* arg)
 {
-    printf("[DEBUG] consumer In \r\n");
-    void* bar2 = g_mem;
-    int* producer_ref = bar2;
-    int* consumer_ref = producer_ref + 1;
-    int producer_val_bak = 0;
-    int consumer_val_bak = 0;
-    /**
-    * Need to set consumer as 1, so producer can start first
-    */
-    *consumer_ref = 1;
-    while(1) {
-        printf("[DEBUG] consumer running \r\n");
-        if(g_running_cycles > 1000) break;
-        printf("[DEBUG] consumer wait for condition , consumer = %d, consumer_bak = %d\r\n", *consumer_ref, consumer_val_bak);
-        pthread_cond_wait(&producer_ready, &mutex);
-        printf("[DEBUG] consumer tring to lock \r\n");
-        pthread_mutex_lock(&mutex);
-        printf("[DEBUG] consumer lock , producer = %d, producer_bak = %d\r\n", *consumer_ref, consumer_val_bak);
-        while(*producer_ref != producer_val_bak + 1);
-        producer_val_bak = *producer_ref;
-        consumer_val_bak = *consumer_ref;
-        *consumer_ref = consumer_val_bak + 1;
-        printf("[DEBUG] consumer unlock \r\n");
-        pthread_mutex_unlock(&mutex);
-        pthread_cond_signal(&consumer_ready);
-    }
-    printf("[DEBUG] consumer left \r\n");
+    int* val1_ref = g_mem;
+    int* val2_ref = val1_ref + 1;
+    volatile int val2 = *val2_ref = 1;
+    volatile int val1 = 0;
+    usleep(1);
+    while(1){
+		pthread_mutex_lock(&mutex);
+        //sleep(1);
+		val2 = *val2_ref = val2 + 1;
+		printf("[Info] Thread 2 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+        while(*val1_ref != val1 + 1);
+        val1 = *val1_ref;
+		pthread_cond_signal(&cond1);
+		pthread_cond_wait(&cond2,&mutex);
+		pthread_mutex_unlock(&mutex);
+	}
+    printf("[DEBUG] Task 2 left \r\n");
+	return NULL;
 }
 
 int main()
 {
-    pthread_t thread_producer, thread_consumer;
+    pthread_t thread1, thread2;
     int err = 0;
     g_mem = malloc(1024);
+    memset(g_mem, 0, 1024);
 
     printf("Creating Tasks \r\n");
 
-    err = pthread_create(&thread_producer, NULL, producer_task, NULL);
+    err = pthread_create(&thread1, NULL, task1, NULL);
     if (err != 0) {
         printf("[Error] can't create producer thread");
         return err;
     }
 
-    err = pthread_create(&thread_consumer, NULL, consumer_task, NULL);
+    err = pthread_create(&thread2, NULL, task2, NULL);
     if (err != 0) {
         printf("[Error] can't create consumer thread");
         return err;
     }
 
-    pthread_join(thread_producer, NULL);
-    pthread_join(thread_consumer, NULL);
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
 
     free(g_mem);
 
