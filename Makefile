@@ -7,6 +7,6 @@ all:
 	gcc test.c -lpthread -O0 -g -o test
 
 clean:
-	rm test_case_1
-	rm test_case_2
-	rm test
+	rm -f test_case_1
+	rm -f test_case_2
+	rm -f test
