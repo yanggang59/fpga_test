@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
@@ -28,9 +29,14 @@ struct map_params {
     size_t size2;
 };
 
+#define RUNNING_CYCLE_LIMITS     1000000
+
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t producer_ready = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
+
 int g_running_cycles = 0;
+volatile int g_init = 0;
 
 void print_buf(char* buf, int len)
 {
@@ -142,75 +148,126 @@ int read_uio_configs(struct map_params* params)
     return 0;
 }
 
-void* producer_task(void* arg)
+void* task1(void* arg)
 {
     struct map_params* params = arg;
     void* bar0 = params->addr0;
-    int* producer_ref = bar0;
-    int* consumer_ref = producer_ref + 1;
-    int producer_val_bak = 0;
-    int consumer_val_bak = 0;
-    *producer_ref = 0;
-    while(1) {
-        if(++g_running_cycles > 1000000) break;
-        pthread_mutex_lock(&mutex);
-        while(*consumer_ref != consumer_val_bak + 1);
-        consumer_val_bak = *consumer_ref;
-        producer_val_bak = *producer_ref;
-        *producer_ref = producer_val_bak + 1;
-        pthread_mutex_unlock(&mutex);
-        pthread_cond_signal(&producer_ready);
-    }
-    printf("[DEBUG] producer left \r\n");
+    int* val1_ref = bar0;
+    int* val2_ref = val1_ref + 1;
+    volatile int val1;
+    volatile int val2;
+
+    int g_count = 0;
+    while(1)
+	{
+		pthread_mutex_lock(&mutex);
+        if(!g_init) {
+            printf("[DEBUG] Task 1 do init \r\n");
+            g_init = 1;
+            val1 = *val1_ref = 0;
+            val2 = 0;
+            *val2_ref = 1;
+        } else {
+            val2 = *val2_ref -1;
+        }
+        val1 = *val1_ref = val1 + 1;
+		//printf("[Info] Thread 1 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+        while(*val2_ref != val2 + 1);
+        val2 = *val2_ref;
+		pthread_cond_signal(&cond2);
+        if(++g_count > RUNNING_CYCLE_LIMITS) {
+            pthread_mutex_unlock(&mutex);
+            break;
+        }
+		pthread_cond_wait(&cond1,&mutex);
+		pthread_mutex_unlock(&mutex);
+	}
+    printf("[DEBUG] Task 1 left \r\n");
+    return NULL;
 }
 
 
-void* consumer_task(void* arg)
+void* task2(void* arg)
 {
     struct map_params* params = arg;
     void* bar2 = params->addr2;
-    int* producer_ref = bar2;
-    int* consumer_ref = producer_ref + 1;
-    int producer_val_bak = 0;
-    int consumer_val_bak = 0;
-    /**
-    * Need to set consumer as 1, so producer can start first
-    */
-    *consumer_ref = 1;
-    while(1) {
-        if(g_running_cycles > 1000000) break;
-        pthread_mutex_lock(&mutex);
-        while(*producer_ref == producer_val_bak);
-        producer_val_bak = *producer_ref;
-        pthread_cond_wait(&producer_ready, &mutex);
-        pthread_mutex_unlock(&mutex);
-    }
-    printf("[DEBUG] consumer left \r\n");
+    int* val1_ref = bar2;
+    int* val2_ref = val1_ref + 1;
+    volatile int val2;
+    volatile int val1;
+    
+    int g_count = 0;
+
+    while(1){
+		pthread_mutex_lock(&mutex);
+        if(!g_init) {
+            printf("[DEBUG] Task 2 do init \r\n");
+            g_init = 1;
+            val2 = *val2_ref = 0;
+            val1 = 0;
+            *val1_ref = 1;
+        } else {
+            val1 = *val1_ref -1;
+        }
+		val2 = *val2_ref = val2 + 1;
+		//printf("[Info] Thread 2 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+        while(*val1_ref != val1 + 1);
+        val1 = *val1_ref;
+		pthread_cond_signal(&cond1);
+        if(++g_count > RUNNING_CYCLE_LIMITS) {
+            pthread_mutex_unlock(&mutex);
+            break;
+        }
+		pthread_cond_wait(&cond2,&mutex);
+		pthread_mutex_unlock(&mutex);
+	}
+    printf("[DEBUG] Task 2 left \r\n");
+	return NULL;
 }
 
 int main()
 {
-    pthread_t thread_producer, thread_consumer;
-    struct map_params params = {0};
+    pthread_t thread1, thread2;
     int err = 0;
+    struct map_params params = {0};
 
     if(read_uio_configs(&params)) {
         printf("[Error] read params error");
         return -1;
     }
+    memset(params.addr0, 0, params.size0);
+    memset(params.addr2, 0, params.size2);
 
-    err = pthread_create(&thread_producer, NULL, producer_task, &params);
+    printf("Creating 2 Tasks \r\n");
+
+    struct timeval tv_start, tv_end;
+
+    if (gettimeofday(&tv_start, NULL) == -1) {
+        printf("[Error] gettimeofday start failed \r\n");
+        return -1;
+    }
+
+    err = pthread_create(&thread1, NULL, task1, &params);
     if (err != 0) {
-        printf("[Error] can't create producer thread");
+        printf("[Error] can't create thread1");
         return err;
     }
 
-    err = pthread_create(&thread_consumer, NULL, consumer_task, &params);
-    if (err != 0)
-        printf("[Error] can't create consumer thread");
+    err = pthread_create(&thread2, NULL, task2, &params);
+    if (err != 0) {
+        printf("[Error] can't create thread2");
         return err;
+    }
 
-    pthread_join(thread_producer, NULL);
-    pthread_join(thread_consumer, NULL);
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+
+    if (gettimeofday(&tv_end, NULL) == -1) {
+        printf("[Error] gettimeofday end failed \r\n");
+        return -1;
+    }
+    printf("[USED] %ld us \r\n", (tv_end.tv_sec * 1000000 + tv_end.tv_usec) - (tv_start.tv_sec * 1000000 + tv_start.tv_usec));
+
+    printf("Main Thread Leaves \r\n");
 
 }
