@@ -14,18 +14,27 @@ pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
 
 int g_running_cycles = 0;
 void* g_mem = NULL;
+volatile int g_init = 0;
 
 void* task1(void* arg)
 {
     int* val1_ref = g_mem;
     int* val2_ref = val1_ref + 1;
-    volatile int val1 = *val1_ref;// = 1;
-    volatile int val2 = 0;
-    *val2_ref = 1;
+
+    volatile int val1;
+    volatile int val2;
     while(1)
 	{
 		pthread_mutex_lock(&mutex);
-        //sleep(1);
+        if(!g_init) {
+            printf("[DEBUG] Task 1 Init \r\n");
+            g_init = 1;
+            val1 = *val1_ref = 0;
+            val2 = 0;
+            *val2_ref = 1;
+        } else {
+            val2 = *val2_ref -1;
+        }
         /**
         * inc area 1
         */
@@ -46,11 +55,19 @@ void* task2(void* arg)
 {
     int* val1_ref = g_mem;
     int* val2_ref = val1_ref + 1;
-    volatile int val2 = *val2_ref = 1;
-    volatile int val1 = 0;
-    usleep(1);
+    volatile int val2;
+    volatile int val1;
     while(1){
 		pthread_mutex_lock(&mutex);
+        if(!g_init) {
+            printf("[DEBUG] Task 2 Init \r\n");
+            g_init = 1;
+            val2 = *val2_ref = 0;
+            val1 = 0;
+            *val1_ref = 1;
+        } else {
+            val1 = *val1_ref -1;
+        }
         //sleep(1);
 		val2 = *val2_ref = val2 + 1;
 		printf("[Info] Thread 2 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
