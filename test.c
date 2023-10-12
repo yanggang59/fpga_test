@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
@@ -98,7 +99,14 @@ int main()
     g_mem = malloc(1024);
     memset(g_mem, 0, 1024);
 
-    printf("Creating Tasks \r\n");
+    printf("Creating 2 Tasks \r\n");
+
+    struct timeval tv_start, tv_end;
+
+    if (gettimeofday(&tv_start, NULL) == -1) {
+        printf("[Error] gettimeofday start failed \r\n");
+        return -1;
+    }
 
     err = pthread_create(&thread1, NULL, task1, NULL);
     if (err != 0) {
@@ -115,6 +123,11 @@ int main()
     pthread_join(thread1, NULL);
     pthread_join(thread2, NULL);
 
+    if (gettimeofday(&tv_end, NULL) == -1) {
+        printf("[Error] gettimeofday end failed \r\n");
+        return -1;
+    }
+    printf("[USED] %ld us \r\n", (tv_end.tv_sec * 1000000 + tv_end.tv_usec) - (tv_start.tv_sec * 1000000 + tv_start.tv_usec));
     free(g_mem);
 
     printf("Main Thread Leaves \r\n");
