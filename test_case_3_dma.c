@@ -30,18 +30,18 @@ struct dma_desc{
     u32 src_addr_low;
     u32 src_addr_high;
     u32 dst_addr_low;
-    u32 dst_addr_high;
+    u32 reserved;
     u32 length;
 }__attribute__((packed));
 
-static void dma_start(char* addr)
+static void dma_start(char* bar0)
 {
-    *(u32*)addr = 1;
+    *(u32*)((char*)bar0 + 0x114) = 5;
 }
 
-static void dma_enable(char* addr)
+static void dma_enable(char* bar0)
 {
-    *(u32*)addr = 1;
+    *(u32*)((char*)bar0 + 0) = 1;
 }
 
 
@@ -152,7 +152,6 @@ int main()
     // desc->src_addr_low = 0;
     // desc->src_addr_high = 0;
     // desc->dst_addr_low = 0;
-    // desc->dst_addr_high = 0;
     // desc->length = 1024;
     u64 src_addr = 0x100000000;
     u32* addr = (u32 *)((char*)params.addr0 + 0x100);
@@ -161,7 +160,9 @@ int main()
     *(addr + 2) = 0;
     *(addr + 4) = 0x400;
 
-    dma_start((char*)params.addr0 + 0x114);
+    dma_start((char*)params.addr0);
+    sleep(1);
+    printf("sleep done\r\n");
     addr = (u32 *)((char*)params.addr0 + 0x118);
     printf("value@0x118 = 0x%X \r\n", *addr);
 
