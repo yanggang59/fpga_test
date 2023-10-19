@@ -19,6 +19,8 @@
 #define UIO_ADDR2 "/sys/class/uio/uio0/maps/map2/addr"
 #define UIO_SIZE2 "/sys/class/uio/uio0/maps/map2/size"
 
+#define DEBUG 0
+
 
 struct map_params {
     void* addr0;
@@ -171,7 +173,9 @@ void* task1(void* arg)
             val2 = *val2_ref -1;
         }
         val1 = *val1_ref = val1 + 1;
-		//printf("[Info] Thread 1 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+#if DEBUG
+        printf("[Info] Thread 1 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+#endif        
         while(*val2_ref != val2 + 1);
         val2 = val2 + 1;
 		pthread_cond_signal(&cond2);

@@ -19,6 +19,8 @@ volatile int g_init = 0;
 
 #define RUNNING_CYCLE_LIMITS     1000000
 
+#define DEBUG 0
+
 void* task1(void* arg)
 {
     int* val1_ref = g_mem;
@@ -40,7 +42,9 @@ void* task1(void* arg)
             val2 = *val2_ref -1;
         }
         val1 = *val1_ref = val1 + 1;
-		//printf("[Info] Thread 1 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+#if DEBUG
+        printf("[Info] Thread 1 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+#endif
         while(*val2_ref != val2 + 1);
         val2 = *val2_ref;
 		pthread_cond_signal(&cond2);
