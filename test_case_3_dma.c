@@ -140,27 +140,30 @@ int main()
     }
 
     printf("The device address %p (lenth %ld)\n", params.addr0, params.size0);
-    memset(params.addr0, 'K', 32);
-    print_buf(params.addr0, 32);
-
 
     printf("sizeof(struct dma_desc) = %ld \r\n", sizeof(struct dma_desc));
+#if 0
     dma_enable((char*)params.addr0);
-
+#else
+    *(u32*)((char*)params.addr0 + 0) = 1;
+#endif
     // struct dma_desc* desc = (struct dma_desc*)((char*)params.addr0 + 0x100);
 
     // desc->src_addr_low = 0;
     // desc->src_addr_high = 0;
     // desc->dst_addr_low = 0;
     // desc->length = 1024;
-    u64 src_addr = 0x100000000;
+    u64 src_addr = 0xfffff000;
     u32* addr = (u32 *)((char*)params.addr0 + 0x100);
     *addr = src_addr & 0xFFFFFFFF;
     *(addr + 1) = (src_addr >> 32) & 0xFFFFFFFF;
     *(addr + 2) = 0;
     *(addr + 4) = 0x400;
-
+#if 0
     dma_start((char*)params.addr0);
+#else
+    *(u32*)((char*)params.addr0 + 0x114) = 5;
+#endif
     sleep(1);
     printf("sleep done\r\n");
     addr = (u32 *)((char*)params.addr0 + 0x118);
