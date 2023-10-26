@@ -38,7 +38,6 @@ struct map_params {
     size_t size2;
     void* addr3;
     size_t size3;
-    int uio_fd;
 };
 
 struct dma_desc{
@@ -195,7 +194,7 @@ int read_uio_configs(struct map_params* params)
 
     printf("============================Bar3 Done=========================\r\n");
 
-    params->uio_fd = uio_fd;
+    close(uio_fd);
 
     return 0;
 }
@@ -204,81 +203,31 @@ int read_uio_configs(struct map_params* params)
 int main()
 {
     struct map_params params = {0};
-    unsigned count = 0;
-    int ret = 0;
-    int uio_fd = 0;
 
     if(read_uio_configs(&params)) {
         printf("[Error] read params error");
         return -1;
     }
 
-    uio_fd = params.uio_fd;
-
     printf("The device address %p (lenth %ld)\n", params.addr0, params.size0);
     printf("The device address %p (lenth %ld)\n", params.addr1, params.size1);
     printf("The device address %p (lenth %ld)\n", params.addr2, params.size2);
     printf("The device address %p (lenth %ld)\n", params.addr3, params.size3);
-    // print_buf(params.addr2, 1024);
-    // print_buf(params.addr3, 1024);
 
-#if 0
-    dma_enable((char*)params.addr0);
-#else
-    *(u32*)((char*)params.addr0 + 0) = 1;
-#endif
-    u64 host_addr = 0xfffff000;
-    u32* addr = (u32 *)((char*)params.addr0 + 0x100);
+
+    //print_buf(params.addr1, 1024);
+
+    void* u_buf = malloc(4096);
 #if 1
-    *addr = host_addr & 0xFFFFFFFF;
-    *(addr + 1) = (host_addr >> 32) & 0xFFFFFFFF;
-    *(addr + 2) = 0;
-    *(addr + 4) = 0x400;
+    memset(u_buf, 'M', 4096);
+    memcpy(params.addr1, u_buf, 4096);
+    print_buf(params.addr1, 1024);
 #else
-    struct dma_desc* desc = (struct dma_desc*)((char*)params.addr0 + 0x100);
-    desc->src_addr_low = host_addr & 0xFFFFFFFF;
-    desc->src_addr_high = (host_addr >> 32) & 0xFFFFFFFF;
-    desc->dst_addr_low = 0 & 0xFFFFFFFF;
-    desc->length = 1024;
+    memset(u_buf, 0, 4096);
+    memcpy(u_buf, params.addr1, 4096);
+    print_buf(u_buf, 1024);
 #endif
-#if 0
-    dma_start((char*)params.addr0);
-#else
-    *(u32*)((char*)params.addr0 + 0x114) = 5;
-#endif
+    free(u_buf);
 
-    ret = read(uio_fd, &count, 4);
-    printf("[DEBUG] err = %d, count = %d \r\n", ret, count);
-    if (ret != 4) {
-        perror("uio read:");
-    }
-
-    addr = (u32 *)((char*)params.addr0 + 0x118);
-    printf("value@0x118 = 0x%X \r\n", *addr);
-
-    printf("********************************************************************\r\n");
-#if 1
-    addr = (u32 *)((char*)params.addr0 + 0x200);
-    host_addr = 0xffffe000;
-    *addr = host_addr & 0xFFFFFFFF;
-    *(addr + 1) = (host_addr >> 32) & 0xFFFFFFFF;;
-    *(addr + 2) = 0;
-    *(addr + 4) = 0x400;
-    *(u32*)((char*)params.addr0 + 0x214) = 7;
-
-    ret = read(uio_fd, &count, 4);
-    printf("[DEBUG] ret = %d, count = %d \r\n", ret, count);
-    if (ret != 4) {
-        perror("uio read:");
-    }
-
-    addr = (u32 *)((char*)params.addr0 + 0x218);
-    printf("value@0x218 = 0x%X \r\n", *addr);
-
-    // print_buf(params.addr2, 1024);
-    // print_buf(params.addr3, 1024);
-#endif
-
-    close(uio_fd);
     return 0;
 }
