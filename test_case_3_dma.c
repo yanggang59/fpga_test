@@ -219,15 +219,15 @@ int main()
     printf("The device address %p (lenth %ld)\n", params.addr1, params.size1);
     printf("The device address %p (lenth %ld)\n", params.addr2, params.size2);
     printf("The device address %p (lenth %ld)\n", params.addr3, params.size3);
-    // print_buf(params.addr2, 1024);
-    // print_buf(params.addr3, 1024);
+    print_buf(params.addr2, 1024);
+    print_buf(params.addr3, 1024);
 
 #if 0
     dma_enable((char*)params.addr0);
 #else
     *(u32*)((char*)params.addr0 + 0) = 1;
 #endif
-    u64 host_addr = 0xfffff000;
+    u64 host_addr = 0xffffd000;
     u32* addr = (u32 *)((char*)params.addr0 + 0x100);
 #if 1
     *addr = host_addr & 0xFFFFFFFF;
@@ -259,7 +259,7 @@ int main()
     printf("********************************************************************\r\n");
 #if 1
     addr = (u32 *)((char*)params.addr0 + 0x200);
-    host_addr = 0xffffe000;
+    host_addr = 0xffffc000;
     *addr = host_addr & 0xFFFFFFFF;
     *(addr + 1) = (host_addr >> 32) & 0xFFFFFFFF;;
     *(addr + 2) = 0;
@@ -275,8 +275,8 @@ int main()
     addr = (u32 *)((char*)params.addr0 + 0x218);
     printf("value@0x218 = 0x%X \r\n", *addr);
 
-    // print_buf(params.addr2, 1024);
-    // print_buf(params.addr3, 1024);
+    print_buf(params.addr2, 1024);
+    print_buf(params.addr3, 1024);
 #endif
 
     close(uio_fd);
