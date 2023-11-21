@@ -1,3 +1,7 @@
+/**
+* Load fpga_uio.ko first , then test
+*/
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>

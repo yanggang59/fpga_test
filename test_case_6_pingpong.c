@@ -27,6 +27,7 @@ struct output_params {
     size_t size1;
     void* addr2;
     size_t size2;
+    int uio_fd;
 };
 
 
@@ -145,8 +146,7 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     oparams->addr2 = access_address;
     oparams->size2 = uio_size;
 
-
-    close(uio_fd);
+    oparams->uio_fd = uio_fd;
 
     return 0;
 }
@@ -238,6 +238,8 @@ int main()
     int err = 0;
     struct output_params oparams1 = {0};
     struct output_params oparams2 = {0};
+    float avg;
+    unsigned long t_us;
 
     struct input_params iparams1 = {
         .uio_dev = "/dev/uio0",
@@ -300,8 +302,22 @@ int main()
         printf("[Error] gettimeofday end failed \r\n");
         return -1;
     }
-    printf("[USED] %ld us \r\n", (tv_end.tv_sec * 1000000 + tv_end.tv_usec) - (tv_start.tv_sec * 1000000 + tv_start.tv_usec));
+    t_us = tv_end.tv_sec * 1000000 + tv_end.tv_usec - (tv_start.tv_sec * 1000000 + tv_start.tv_usec);
+    avg = ((float)t_us)/1000000/4;
+    printf("[Total Consume] %ld us \r\n", t_us);
+    printf("[Average Latency] %f us \r\n", avg);
+    printf("Main Thread left \r\n");
 
-    printf("Main Thread Leaves \r\n");
+    munmap(oparams1.addr0, oparams1.size0);
+    munmap(oparams1.addr1, oparams1.size1);
+    munmap(oparams1.addr2, oparams1.size2);
+
+    munmap(oparams2.addr0, oparams2.size0);
+    munmap(oparams2.addr1, oparams2.size1);
+    munmap(oparams2.addr2, oparams2.size2);
+
+    close(oparams1.uio_fd);
+    close(oparams2.uio_fd);
+
 #endif
 }

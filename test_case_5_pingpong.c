@@ -208,6 +208,8 @@ int main()
     int err = 0;
     struct output_params oparams1 = {0};
     struct output_params oparams2 = {0};
+    float avg;
+    unsigned long t_us;
 
     struct input_params iparams1 = {
         .uio_dev = "/dev/uio0",
@@ -263,8 +265,10 @@ int main()
         printf("[Error] gettimeofday end failed \r\n");
         return -1;
     }
-    printf("[USED] %ld us \r\n", (tv_end.tv_sec * 1000000 + tv_end.tv_usec) - (tv_start.tv_sec * 1000000 + tv_start.tv_usec));
-
-    printf("Main Thread Leaves \r\n");
+    t_us = tv_end.tv_sec * 1000000 + tv_end.tv_usec - (tv_start.tv_sec * 1000000 + tv_start.tv_usec);
+    avg = ((float)t_us)/1000000/4;
+    printf("[Total Consume] %ld us \r\n", t_us);
+    printf("[Average Latency] %f us \r\n", avg);
+    printf("Main Thread left \r\n");
 
 }
