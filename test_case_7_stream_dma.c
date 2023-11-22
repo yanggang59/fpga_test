@@ -49,7 +49,7 @@ typedef unsigned long uint64_t;
 #define CHA_INT_ENA                        0x90
 
 #define IRQ_BLK_REG_BASE_OFF               0x2000
-#define CHA_INT_ENA_W1S_OFF                0x10
+#define IRQ_BLK_CHA_INT_ENA_OFF            0x10
 #define IRQ_BLK_CHA_VEC_NUM                0xA0
 
 #define USER_INT_ENA_MASK_OFF              0x04
@@ -238,7 +238,7 @@ static void enable_interrupt(void* base_addr)
 
 static void config_irq_block_reg(void* base_addr)
 {
-    write_reg(base_addr, IRQ_BLK_REG_BASE_OFF | CHA_INT_ENA_W1S_OFF , 0b1111);
+    write_reg(base_addr, IRQ_BLK_REG_BASE_OFF | IRQ_BLK_CHA_INT_ENA_OFF , 0b1111);
 }
 
 static void config_usr_src_regs(void* usr_base_reg_addr, unsigned long src_addr, int src_port_id, int dst_port_id, int src_off, int dst_off)
