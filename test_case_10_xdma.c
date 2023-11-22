@@ -50,7 +50,6 @@ typedef unsigned long uint64_t;
 
 #define IRQ_BLK_REG_BASE_OFF               0x2000
 #define CHA_INT_ENA_W1S_OFF                0x14
-#define IRQ_BLK_CHA_VEC_NUM                0xA0
 
 #define USER_INT_ENA_MASK_OFF              0x04
 #define CHA_INT_ENA_MASK_OFF               0x10
@@ -222,10 +221,10 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
 
 static void config_control(void* base_addr)
 {
-    write_reg(base_addr, H2C_0_REG_BASE_OFF | CONTROL_OFF, 0b101);
-    write_reg(base_addr, H2C_1_REG_BASE_OFF | CONTROL_OFF, 0b101);
-    write_reg(base_addr, C2H_0_REG_BASE_OFF | CONTROL_OFF, 0b101);
-    write_reg(base_addr, C2H_1_REG_BASE_OFF | CONTROL_OFF, 0b101);
+    write_reg(base_addr, H2C_0_REG_BASE_OFF | CONTROL_OFF, 0b1111);
+    write_reg(base_addr, H2C_1_REG_BASE_OFF | CONTROL_OFF, 0b1111);
+    write_reg(base_addr, C2H_0_REG_BASE_OFF | CONTROL_OFF, 0b1111);
+    write_reg(base_addr, C2H_1_REG_BASE_OFF | CONTROL_OFF, 0b1111);
 }
 
 static void enable_interrupt(void* base_addr)
@@ -238,13 +237,13 @@ static void enable_interrupt(void* base_addr)
 
 static void config_irq_block_reg(void* base_addr)
 {
-    write_reg(base_addr, IRQ_BLK_REG_BASE_OFF | CHA_INT_ENA_W1S_OFF , 0b1111);
+    write_reg(base_addr, IRQ_BLK_REG_BASE_OFF | CHA_INT_ENA_W1S_OFF , ~0);
 }
 
-static void config_usr_src_regs(void* usr_base_reg_addr, unsigned long src_addr, int src_port_id, int dst_port_id, int src_off, int dst_off)
+static void config_usr_src_regs(void* usr_base_reg_addr, void* src_addr, int src_port_id, int dst_port_id, int src_off, int dst_off)
 {
-    write_reg(usr_base_reg_addr, HOST_BASE_ADDR_LO_OFF, src_addr & 0xFFFFFFFF);
-    write_reg(usr_base_reg_addr, HOST_BASE_ADDR_HI_OFF, (src_addr >> 32) & 0xFFFFFFFF);
+    write_reg(usr_base_reg_addr, HOST_BASE_ADDR_LO_OFF, (unsigned long)src_addr & 0xFFFFFFFF);
+    write_reg(usr_base_reg_addr, HOST_BASE_ADDR_HI_OFF, 0);
 
     write_reg(usr_base_reg_addr, SRC_PORT_ID_OFF, src_port_id);
     write_reg(usr_base_reg_addr, SRC_ADDR_OFF, src_off);
@@ -254,10 +253,10 @@ static void config_usr_src_regs(void* usr_base_reg_addr, unsigned long src_addr,
 
 }
 
-static void config_usr_dst_regs(void* usr_base_reg_addr, unsigned long dst_addr)
+static void config_usr_dst_regs(void* usr_base_reg_addr, void* dst_addr)
 {
-    write_reg(usr_base_reg_addr, HOST_BASE_ADDR_LO_OFF, dst_addr & 0xFFFFFFFF);
-    write_reg(usr_base_reg_addr, HOST_BASE_ADDR_HI_OFF, (dst_addr >> 32) & 0xFFFFFFFF);
+    write_reg(usr_base_reg_addr, HOST_BASE_ADDR_LO_OFF, (unsigned long)dst_addr & 0xFFFFFFFF);
+    write_reg(usr_base_reg_addr, HOST_BASE_ADDR_HI_OFF, 0);
 }
 
 static void start_dma(void* usr_base_reg_addr, int dma_length)
@@ -306,11 +305,9 @@ int main()
 
     uint32_t cfg_blk_msi_ena0, cfg_blk_msi_ena1;
     uint32_t ep0_h2c1_status ,ep1_c2h0_status;
-    uint32_t irq_blk_cha_vec_num_ep0, irq_blk_cha_vec_num_ep1;
 
-
-    unsigned long src_base_addr = 0xb021000;
-    unsigned long dst_base_addr = 0xb023000;
+    void* src_base_addr = (void*)0xfffff000;
+    void* dst_base_addr = (void*)0xffffe000;
 
     int src_port_id = 0;
     int dst_port_id = 1;
@@ -344,15 +341,15 @@ int main()
     // CONTROL REG: DMA1, H2C0, H2C1, C2H0, C2H1
     config_control(xdma1_config_bar);
 
-    // config_irq_block_reg(xdma0_config_bar);
-    // config_irq_block_reg(xdma1_config_bar);
+    config_irq_block_reg(xdma0_config_bar);
+    config_irq_block_reg(xdma1_config_bar);
 
-    // // INT REG: DMA0, H2C0, H2C1, C2H0, C2H1
-    // enable_interrupt(xdma0_config_bar);
-    // // INT REG: DMA1, H2C0, H2C1, C2H0, C2H1
-    // enable_interrupt(xdma1_config_bar);
+    // INT REG: DMA0, H2C0, H2C1, C2H0, C2H1
+    enable_interrupt(xdma0_config_bar);
+    // INT REG: DMA1, H2C0, H2C1, C2H0, C2H1
+    enable_interrupt(xdma1_config_bar);
 
-#if 0
+
     cfg_blk_msi_ena0 = read_reg(xdma0_config_bar, CFG_BLK_REG_BASE_OFF | CFG_BLK_MSI_ENABLE_OFF);
     cfg_blk_msi_ena1 = read_reg(xdma1_config_bar, CFG_BLK_REG_BASE_OFF | CFG_BLK_MSI_ENABLE_OFF);
 
@@ -360,11 +357,7 @@ int main()
 
     ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_0_REG_BASE_OFF | STATUS_REG_OFF);
     ep1_c2h0_status = read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_REG_OFF);
-    irq_blk_cha_vec_num_ep0 = read_reg(xdma0_config_bar, IRQ_BLK_REG_BASE_OFF | IRQ_BLK_CHA_VEC_NUM);
-    irq_blk_cha_vec_num_ep1 = read_reg(xdma1_config_bar, IRQ_BLK_REG_BASE_OFF | IRQ_BLK_CHA_VEC_NUM);
     printf("Before DMA , ep0_h2c1_status = %d, ep1_c2h0_status = %d \r\n", ep0_h2c1_status, ep1_c2h0_status);
-    printf(" irq_blk_cha_vec_num_ep0 = %d, irq_blk_cha_vec_num_ep1 = %d \r\n", irq_blk_cha_vec_num_ep0, irq_blk_cha_vec_num_ep1);
-#endif
     /**
     * To config USR REG, In BAR0
     */
