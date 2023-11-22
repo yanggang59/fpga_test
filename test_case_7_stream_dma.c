@@ -49,7 +49,7 @@ typedef unsigned long uint64_t;
 #define CHA_INT_ENA                        0x90
 
 #define IRQ_BLK_REG_BASE_OFF               0x2000
-#define CHA_INT_ENA_W1S_OFF                0x14
+#define CHA_INT_ENA_W1S_OFF                0x10
 #define IRQ_BLK_CHA_VEC_NUM                0xA0
 
 #define USER_INT_ENA_MASK_OFF              0x04
@@ -230,10 +230,10 @@ static void config_control(void* base_addr)
 
 static void enable_interrupt(void* base_addr)
 {
-    write_reg(base_addr, H2C_0_REG_BASE_OFF | CHA_INT_ENA, 0b100);
-    write_reg(base_addr, H2C_1_REG_BASE_OFF | CHA_INT_ENA, 0b100);
-    write_reg(base_addr, C2H_0_REG_BASE_OFF | CHA_INT_ENA, 0b100);
-    write_reg(base_addr, C2H_1_REG_BASE_OFF | CHA_INT_ENA, 0b100);
+    write_reg(base_addr, H2C_0_REG_BASE_OFF | CHA_INT_ENA, 0b110);
+    write_reg(base_addr, H2C_1_REG_BASE_OFF | CHA_INT_ENA, 0b110);
+    write_reg(base_addr, C2H_0_REG_BASE_OFF | CHA_INT_ENA, 0b110);
+    write_reg(base_addr, C2H_1_REG_BASE_OFF | CHA_INT_ENA, 0b110);
 }
 
 static void config_irq_block_reg(void* base_addr)
@@ -309,8 +309,8 @@ int main()
     uint32_t irq_blk_cha_vec_num_ep0, irq_blk_cha_vec_num_ep1;
 
 
-    unsigned long src_base_addr = 0xb021000;
-    unsigned long dst_base_addr = 0xb023000;
+    unsigned long src_base_addr = 0x18f56d000;
+    unsigned long dst_base_addr = 0x18c0ca000;
 
     int src_port_id = 0;
     int dst_port_id = 1;
@@ -344,13 +344,13 @@ int main()
     // CONTROL REG: DMA1, H2C0, H2C1, C2H0, C2H1
     config_control(xdma1_config_bar);
 
-    // config_irq_block_reg(xdma0_config_bar);
-    // config_irq_block_reg(xdma1_config_bar);
+    config_irq_block_reg(xdma0_config_bar);
+    config_irq_block_reg(xdma1_config_bar);
 
-    // // INT REG: DMA0, H2C0, H2C1, C2H0, C2H1
-    // enable_interrupt(xdma0_config_bar);
-    // // INT REG: DMA1, H2C0, H2C1, C2H0, C2H1
-    // enable_interrupt(xdma1_config_bar);
+    // INT REG: DMA0, H2C0, H2C1, C2H0, C2H1
+    enable_interrupt(xdma0_config_bar);
+    // INT REG: DMA1, H2C0, H2C1, C2H0, C2H1
+    enable_interrupt(xdma1_config_bar);
 
 #if 0
     cfg_blk_msi_ena0 = read_reg(xdma0_config_bar, CFG_BLK_REG_BASE_OFF | CFG_BLK_MSI_ENABLE_OFF);
@@ -385,9 +385,9 @@ int main()
     printf("**** EP1 *****\r\n");
     print_buf(oparams1.addr3, 1024);
 
-    ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_0_REG_BASE_OFF | STATUS_REG_OFF);
+    ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_1_REG_BASE_OFF | STATUS_REG_OFF);
     ep1_c2h0_status = read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_REG_OFF);
-    printf("After DMA , ep0_h2c1_status = %d, c2h0_status_1 = %d \r\n", ep0_h2c1_status, ep1_c2h0_status);
+    printf("After DMA , ep0_h2c1_status = %d, ep1_c2h0_status = %d \r\n", ep0_h2c1_status, ep1_c2h0_status);
 
     munmap(oparams0.addr0, oparams0.size0);
     munmap(oparams0.addr1, oparams0.size1);
