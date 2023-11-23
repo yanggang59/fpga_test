@@ -32,6 +32,7 @@ struct output_params {
     size_t size2;
     void* addr3;
     size_t size3;
+    int uio_fd;
 };
 
 typedef unsigned int uint32_t;
@@ -50,6 +51,7 @@ typedef unsigned long uint64_t;
 
 #define IRQ_BLK_REG_BASE_OFF               0x2000
 #define IRQ_BLK_CHA_INT_ENA_OFF            0x10
+#define IRQ_BLK_CHA_INT_ENA_W1S_OFF        0x14
 #define IRQ_BLK_CHA_VEC_NUM                0xA0
 
 #define USER_INT_ENA_MASK_OFF              0x04
@@ -58,6 +60,9 @@ typedef unsigned long uint64_t;
 
 #define CFG_BLK_REG_BASE_OFF                0x3000
 #define CFG_BLK_MSI_ENABLE_OFF              0x14
+
+
+#define STATUS_DMA_COM_BIT                  0x2
 
 /**################# USR REGS ####################*/
 #define HOST_BASE_ADDR_LO_OFF              0x00
@@ -69,6 +74,8 @@ typedef unsigned long uint64_t;
 #define DMA_LENGTH_OFF                     0x18
 
 
+/**#################### self defined #####################*/
+#define POLL_MODE                          1
 
 
 void print_buf(char* buf, int len)
@@ -215,7 +222,7 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     oparams->addr3 = access_address;
     oparams->size3 = uio_size;
 
-    close(uio_fd);
+    oparams->uio_fd = uio_fd;
 
     return 0;
 }
@@ -267,7 +274,10 @@ static void start_dma(void* usr_base_reg_addr, int dma_length)
 
 int main()
 {
-    int err = 0;
+    int ret = 0;
+    unsigned int count = 0;
+    struct timeval tv_start, tv_end;
+    unsigned long t_us;
     struct output_params oparams0 = {0};
     struct output_params oparams1 = {0};
 
@@ -309,8 +319,8 @@ int main()
     uint32_t irq_blk_cha_vec_num_ep0, irq_blk_cha_vec_num_ep1;
 
 
-    unsigned long src_base_addr = 0x18f56d000;
-    unsigned long dst_base_addr = 0x18c0ca000;
+    unsigned long src_base_addr = 0xa300000;
+    unsigned long dst_base_addr = 0x4dd00000;
 
     int src_port_id = 0;
     int dst_port_id = 1;
@@ -321,7 +331,7 @@ int main()
     /**
     * [Note] : write dma_length means start dma
     */
-    int dma_length = 4096;
+    int dma_length = 1024 * 1024;
 
     void* usr0_config_bar = oparams0.addr0;   // BAR0 ---- 1M
     void* xdma0_config_bar = oparams0.addr1;  // BAR1 ---- 64K
@@ -352,33 +362,40 @@ int main()
     // INT REG: DMA1, H2C0, H2C1, C2H0, C2H1
     enable_interrupt(xdma1_config_bar);
 
-#if 0
-    cfg_blk_msi_ena0 = read_reg(xdma0_config_bar, CFG_BLK_REG_BASE_OFF | CFG_BLK_MSI_ENABLE_OFF);
-    cfg_blk_msi_ena1 = read_reg(xdma1_config_bar, CFG_BLK_REG_BASE_OFF | CFG_BLK_MSI_ENABLE_OFF);
-
-    printf("[Info] cfg_blk_msi_ena0 = %d, cfg_blk_msi_ena1 = %d \r\n", cfg_blk_msi_ena0, cfg_blk_msi_ena1);
-
-    ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_0_REG_BASE_OFF | STATUS_REG_OFF);
+    ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_1_REG_BASE_OFF | STATUS_REG_OFF);
     ep1_c2h0_status = read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_REG_OFF);
-    irq_blk_cha_vec_num_ep0 = read_reg(xdma0_config_bar, IRQ_BLK_REG_BASE_OFF | IRQ_BLK_CHA_VEC_NUM);
-    irq_blk_cha_vec_num_ep1 = read_reg(xdma1_config_bar, IRQ_BLK_REG_BASE_OFF | IRQ_BLK_CHA_VEC_NUM);
+    
     printf("Before DMA , ep0_h2c1_status = %d, ep1_c2h0_status = %d \r\n", ep0_h2c1_status, ep1_c2h0_status);
-    printf(" irq_blk_cha_vec_num_ep0 = %d, irq_blk_cha_vec_num_ep1 = %d \r\n", irq_blk_cha_vec_num_ep0, irq_blk_cha_vec_num_ep1);
-#endif
+
     /**
     * To config USR REG, In BAR0
     */
     config_usr_src_regs(usr0_config_bar, src_base_addr, src_port_id, dst_port_id, src_off, dst_off);
     config_usr_dst_regs(usr1_config_bar, dst_base_addr);
 
-
+    if (gettimeofday(&tv_start, NULL) == -1) {
+        printf("[Error] gettimeofday start failed \r\n");
+        return -1;
+    }
     /**
     * set dma length to start dma 
     */
     start_dma(usr0_config_bar, dma_length);
- 
-    sleep(1);
-
+#if POLL_MODE
+    while(!(read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_REG_OFF) & (1 << STATUS_DMA_COM_BIT)));
+#else
+    //read EP1 till interrupt happens
+    ret = read(oparams1.uio_fd, &count, 4);
+    if (ret != 4) {
+        perror("uio read:");
+    }
+#endif
+    if (gettimeofday(&tv_end, NULL) == -1) {
+        printf("[Error] gettimeofday start failed \r\n");
+        return -1;
+    }
+    t_us = tv_end.tv_sec * 1000000 + tv_end.tv_usec - (tv_start.tv_sec * 1000000 + tv_start.tv_usec);
+    printf("[Total Consume] %ld us \r\n", t_us);
     printf("*** After DMA ***  \r\n");
     printf("**** EP0 *****\r\n");
     print_buf(oparams0.addr2, 1024);
@@ -399,4 +416,6 @@ int main()
     munmap(oparams1.addr2, oparams1.size2);
     munmap(oparams1.addr3, oparams1.size3);
 
+    close(oparams0.uio_fd);
+    close(oparams1.uio_fd);
 }
