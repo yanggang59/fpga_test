@@ -47,6 +47,7 @@ typedef unsigned long uint64_t;
 
 #define CONTROL_OFF                        0x04
 #define STATUS_REG_OFF                     0x40
+#define STATUS_RC_REG_OFF                  0x44
 #define CHA_INT_ENA                        0x90
 
 #define IRQ_BLK_REG_BASE_OFF               0x2000
@@ -64,7 +65,7 @@ typedef unsigned long uint64_t;
 
 #define STATUS_DMA_COM_BIT                  0x2
 
-/**################# USR REGS ####################*/
+/**##################### USR REGS #######################*/
 #define HOST_BASE_ADDR_LO_OFF              0x00
 #define HOST_BASE_ADDR_HI_OFF              0x04
 #define SRC_PORT_ID_OFF                    0x08
@@ -74,8 +75,11 @@ typedef unsigned long uint64_t;
 #define DMA_LENGTH_OFF                     0x18
 
 
-/**#################### self defined #####################*/
+/**###################### For Test #####################*/
 #define POLL_MODE                          1
+#define TEST_CPU_UTIL                      1
+#define TEST_CONTEXT                       0
+#define LOOP_CNT                           10000
 
 
 void print_buf(char* buf, int len)
@@ -319,14 +323,15 @@ int main()
     uint32_t irq_blk_cha_vec_num_ep0, irq_blk_cha_vec_num_ep1;
 
 
-    unsigned long src_base_addr = 0xa300000;
-    unsigned long dst_base_addr = 0x4dd00000;
+    unsigned long src_base_addr = 0xfff00000;
+    unsigned long dst_base_addr = 0xffe00000;
 
     int src_port_id = 0;
     int dst_port_id = 1;
 
     int src_off = 0;
     int dst_off = 0;
+    int cnt = 0;
 
     /**
     * [Note] : write dma_length means start dma
@@ -340,11 +345,12 @@ int main()
     void* xdma1_config_bar = oparams1.addr1;  // BAR1 ---- 64K
 
     printf("*** Before DMA ***  \r\n");
+#ifdef TEST_CONTEXT 
     printf("**** EP0 *****\r\n");
     print_buf(oparams0.addr2, 1024);
     printf("**** EP1 *****\r\n");
     print_buf(oparams1.addr3, 1024);
-
+#endif
     /**
     * To config DMA Engine of XDMA for EP0 and EP1, In BAR1
     */
@@ -362,11 +368,6 @@ int main()
     // INT REG: DMA1, H2C0, H2C1, C2H0, C2H1
     enable_interrupt(xdma1_config_bar);
 
-    ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_1_REG_BASE_OFF | STATUS_REG_OFF);
-    ep1_c2h0_status = read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_REG_OFF);
-    
-    printf("Before DMA , ep0_h2c1_status = %d, ep1_c2h0_status = %d \r\n", ep0_h2c1_status, ep1_c2h0_status);
-
     /**
     * To config USR REG, In BAR0
     */
@@ -380,14 +381,26 @@ int main()
     /**
     * set dma length to start dma 
     */
+loop:
     start_dma(usr0_config_bar, dma_length);
 #if POLL_MODE
+#ifdef TEST_CPU_UTIL
     while(!(read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_REG_OFF) & (1 << STATUS_DMA_COM_BIT)));
+    //Clean STATUS Reg
+    read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_RC_REG_OFF);
+#else
+    while(!(read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_RC_REG_OFF) & (1 << STATUS_DMA_COM_BIT)));
+#endif
 #else
     //read EP1 till interrupt happens
     ret = read(oparams1.uio_fd, &count, 4);
     if (ret != 4) {
         perror("uio read:");
+    }
+#endif
+#ifdef TEST_CPU_UTIL
+    if(cnt++ < LOOP_CNT) {
+        goto loop;
     }
 #endif
     if (gettimeofday(&tv_end, NULL) == -1) {
@@ -397,13 +410,14 @@ int main()
     t_us = tv_end.tv_sec * 1000000 + tv_end.tv_usec - (tv_start.tv_sec * 1000000 + tv_start.tv_usec);
     printf("[Total Consume] %ld us \r\n", t_us);
     printf("*** After DMA ***  \r\n");
+#ifdef TEST_CONTEXT
     printf("**** EP0 *****\r\n");
     print_buf(oparams0.addr2, 1024);
     printf("**** EP1 *****\r\n");
     print_buf(oparams1.addr3, 1024);
-
-    ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_1_REG_BASE_OFF | STATUS_REG_OFF);
-    ep1_c2h0_status = read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_REG_OFF);
+#endif
+    ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_1_REG_BASE_OFF | STATUS_RC_REG_OFF);
+    ep1_c2h0_status = read_reg(xdma1_config_bar, C2H_0_REG_BASE_OFF | STATUS_RC_REG_OFF);
     printf("After DMA , ep0_h2c1_status = %d, ep1_c2h0_status = %d \r\n", ep0_h2c1_status, ep1_c2h0_status);
 
     munmap(oparams0.addr0, oparams0.size0);
