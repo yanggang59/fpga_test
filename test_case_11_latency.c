@@ -18,7 +18,7 @@
 #define UIO_SIZE1 "/sys/class/uio/"UIO"/maps/map1/size"
 
 #define RUNNING_CYCLE_LIMITS 1000000
-
+#define DEBUG_THIS_MODULE 0
 
 static char uio_addr_buf[16], uio_size_buf[20];
 
@@ -119,7 +119,7 @@ int read_uio_configs(struct map_params* params)
 int main()
 {
     int count = 0;
-    int* bar0 = NULL;
+    int* bar = NULL;
     int* val0_ref;
     int* val1_ref;
     int val0 = 0, val1 = 0;
@@ -132,10 +132,10 @@ int main()
         printf("[Error] read params error");
         return -1;
     }
-    bar0 = params.addr1;
+    bar = params.addr1;
     memset(params.addr1, 0, 1024);
-    val0_ref = bar0;
-    val1_ref = bar0 + 1;
+    val0_ref = bar;
+    val1_ref = bar + 1;
 #if 1
     if (gettimeofday(&tv_start, NULL) == -1) {
         printf("[Error] gettimeofday start failed \r\n");
@@ -146,11 +146,17 @@ int main()
         /**
         ** This is the code for EP0, EP0 starts first
         */
+        //EP0 should stop here until EP1 runs
         //increase val0
         val0 = *val0_ref = val0 + 1;
-        //EP0 should stop here until EP1 runs
+#if DEBUG_THIS_MODULE
+        printf("[Before EP0] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
         while(*val1_ref != val1 + 1);
         val1 = val1 + 1;
+#if DEBUG_THIS_MODULE
+        printf("[After EP0] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
         if(++count >= RUNNING_CYCLE_LIMITS) {
             break;
         }
@@ -159,11 +165,17 @@ int main()
         /**
         ** This is the code for EP1, EP1 starts later
         */
+#if DEBUG_THIS_MODULE
+        printf("[Before EP1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
+        //EP1 should stop here until EP0 runs
+        while(*val0_ref != val0 + 1);
         //increase val1 first, so EP0 can continue to run
         val1 = *val1_ref = val1 + 1;
-        //EP0 should stop here until EP1 runs
-        while(*val0_ref != val0 + 1);
         val0 = val0 + 1;
+#if DEBUG_THIS_MODULE
+        printf("[EP1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
         if(++count >= RUNNING_CYCLE_LIMITS) {
             break;
         }
