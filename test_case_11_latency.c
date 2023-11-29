@@ -17,8 +17,8 @@
 #define UIO_ADDR1 "/sys/class/uio/"UIO"/maps/map1/addr"
 #define UIO_SIZE1 "/sys/class/uio/"UIO"/maps/map1/size"
 
-#define RUNNING_CYCLE_LIMITS 1000000
-#define DEBUG_THIS_MODULE 0
+#define RUNNING_CYCLE_LIMITS                          1000000
+#define DEBUG_THIS_MODULE                             0
 
 static char uio_addr_buf[16], uio_size_buf[20];
 
@@ -133,7 +133,9 @@ int main()
         return -1;
     }
     bar = params.addr1;
+#ifdef EP0
     memset(params.addr1, 0, 1024);
+#endif
     val0_ref = bar;
     val1_ref = bar + 1;
 #if 1
