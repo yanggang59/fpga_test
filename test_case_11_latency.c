@@ -55,7 +55,7 @@ int read_uio_configs(struct map_params* params)
     char uio_addr_buf[64], uio_size_buf[64];
 
     uio_fd = open(UIO_DEV, O_RDWR);
-
+#if 0
     addr_fd = open(UIO_ADDR0, O_RDONLY);
     size_fd = open(UIO_SIZE0, O_RDONLY);
     if( addr_fd < 0 || size_fd < 0 || uio_fd < 0) {
@@ -80,11 +80,11 @@ int read_uio_configs(struct map_params* params)
 
     params->addr0 = access_address;
     params->size0 = uio_size;
-
+#endif
     printf("=====================================================\r\n");
 
-    addr_fd = open(UIO_ADDR0, O_RDONLY);
-    size_fd = open(UIO_SIZE0, O_RDONLY);
+    addr_fd = open(UIO_ADDR1, O_RDONLY);
+    size_fd = open(UIO_SIZE1, O_RDONLY);
     if( addr_fd < 0 || size_fd < 0 || uio_fd < 0) {
         fprintf(stderr, "mmap: %s\n", strerror(errno));
         exit(-1);
@@ -98,7 +98,7 @@ int read_uio_configs(struct map_params* params)
     uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
     uio_size = (int)strtol(uio_size_buf, NULL, 0);
 
-    access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, 0);
+    access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, getpagesize());
 
     if (access_address == (void*) -1) {
         fprintf(stderr, "mmap: %s\n", strerror(errno));
