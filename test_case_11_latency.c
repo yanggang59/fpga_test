@@ -120,8 +120,8 @@ int main()
 {
     int count = 0;
     int* bar0 = NULL;
-    int* val0_ref = bar0;
-    int* val1_ref = bar0 + 1;
+    int* val0_ref;
+    int* val1_ref;
     int val0 = 0, val1 = 0;
     int init = 0;
     struct timeval tv_start, tv_end;
@@ -133,9 +133,10 @@ int main()
         return -1;
     }
     bar0 = params.addr1;
-    memset(params.addr1, 'A', 1024);
-    print_buf(params.addr1, 1024);
-#if 0
+    memset(params.addr1, 0, 1024);
+    val0_ref = bar0;
+    val1_ref = bar0 + 1;
+#if 1
     if (gettimeofday(&tv_start, NULL) == -1) {
         printf("[Error] gettimeofday start failed \r\n");
         return -1;
