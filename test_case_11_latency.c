@@ -55,7 +55,6 @@ int read_uio_configs(struct map_params* params)
     char uio_addr_buf[64], uio_size_buf[64];
 
     uio_fd = open(UIO_DEV, O_RDWR);
-#if 0
     addr_fd = open(UIO_ADDR0, O_RDONLY);
     size_fd = open(UIO_SIZE0, O_RDONLY);
     if( addr_fd < 0 || size_fd < 0 || uio_fd < 0) {
@@ -80,7 +79,6 @@ int read_uio_configs(struct map_params* params)
 
     params->addr0 = access_address;
     params->size0 = uio_size;
-#endif
     printf("=====================================================\r\n");
 
     addr_fd = open(UIO_ADDR1, O_RDONLY);
@@ -132,12 +130,14 @@ int main()
         printf("[Error] read params error");
         return -1;
     }
-    bar = params.addr1;
-#ifdef EP0
-    memset(params.addr1, 0, 1024);
-#endif
+    bar = params.addr0;
     val0_ref = bar;
     val1_ref = bar + 1;
+#ifdef EP0
+    //Only need to clear val0 val1 once, EP0 should do it
+    *val0_ref = 0;
+    *val1_ref = 0;
+#endif
 #if 1
     if (gettimeofday(&tv_start, NULL) == -1) {
         printf("[Error] gettimeofday start failed \r\n");
@@ -148,8 +148,8 @@ int main()
         /**
         ** This is the code for EP0, EP0 starts first
         */
-        //EP0 should stop here until EP1 runs
-        //increase val0
+        // EP0 should stop here until EP1 runs
+        // increase val0
         val0 = *val0_ref = val0 + 1;
 #if DEBUG_THIS_MODULE
         printf("[Before EP0] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
@@ -170,9 +170,9 @@ int main()
 #if DEBUG_THIS_MODULE
         printf("[Before EP1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
 #endif
-        //EP1 should stop here until EP0 runs
+        // EP1 should stop here until EP0 runs
         while(*val0_ref != val0 + 1);
-        //increase val1 first, so EP0 can continue to run
+        // increase val1 first, so EP0 can continue to run
         val1 = *val1_ref = val1 + 1;
         val0 = val0 + 1;
 #if DEBUG_THIS_MODULE
@@ -191,7 +191,6 @@ int main()
     avg = ((float)t_us)/1000000/4;
     printf("[Total Consume] %ld us \r\n", t_us);
     printf("[Average Latency] %f us \r\n", avg);
-    printf("Main Thread left \r\n");
 #endif
     return 0;
 }
