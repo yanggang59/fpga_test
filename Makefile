@@ -8,7 +8,7 @@ TESTCASE7 ?= test_case_7_stream_dma.c
 TESTCASE8 ?= test_case_8_ram_bus_test.c
 TESTCASE9 ?= test_case_9_ram_pingpong.c
 TESTCASE10 ?= test_case_10_xdma.c
-
+TESTCASE11 ?= test_case_11_latency.c
 all:
 	gcc ${TESTCASE1} -o test_case_1
 	gcc ${TESTCASE2} -o test_case_2 -lpthread
@@ -20,6 +20,8 @@ all:
 	gcc ${TESTCASE8} -o test_case_8
 	gcc ${TESTCASE9} -o test_case_9 -lpthread
 	gcc ${TESTCASE10} -o test_case_10
+	gcc ${TESTCASE11} -o test_case_11_ep0 -DEP0
+	gcc ${TESTCASE11} -o test_case_11_ep1 -DEP1
 	gcc test.c -lpthread -g -o test
 
 clean:
@@ -33,4 +35,6 @@ clean:
 	rm test_case_8 -f
 	rm test_case_9 -f
 	rm test_case_10 -f
+	rm test_case_11_ep0 -f
+	rm test_case_11_ep1 -f
 	rm test -f
