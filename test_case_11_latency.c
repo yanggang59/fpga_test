@@ -25,6 +25,8 @@ static char uio_addr_buf[16], uio_size_buf[20];
 struct map_params {
     void* addr0;
     size_t size0;
+    void* addr1;
+    size_t size1;
 };
 
 void print_buf(char* buf, int len)
@@ -81,6 +83,33 @@ int read_uio_configs(struct map_params* params)
 
     printf("=====================================================\r\n");
 
+    addr_fd = open(UIO_ADDR0, O_RDONLY);
+    size_fd = open(UIO_SIZE0, O_RDONLY);
+    if( addr_fd < 0 || size_fd < 0 || uio_fd < 0) {
+        fprintf(stderr, "mmap: %s\n", strerror(errno));
+        exit(-1);
+    }
+    read(addr_fd, uio_addr_buf, sizeof(uio_addr_buf));
+    read(size_fd, uio_size_buf, sizeof(uio_size_buf));
+
+    close(addr_fd);
+    close(size_fd);
+
+    uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
+    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+
+    access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, 0);
+
+    if (access_address == (void*) -1) {
+        fprintf(stderr, "mmap: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    params->addr1 = access_address;
+    params->size1 = uio_size;
+
+    printf("=====================================================\r\n");
+
     close(uio_fd);
 
     return 0;
@@ -103,7 +132,10 @@ int main()
         printf("[Error] read params error");
         return -1;
     }
-    bar0 = params.addr0;
+    bar0 = params.addr1;
+    memset(params.addr1, 'A', 1024);
+    print_buf(params.addr1, 1024);
+#if 0
     if (gettimeofday(&tv_start, NULL) == -1) {
         printf("[Error] gettimeofday start failed \r\n");
         return -1;
@@ -145,5 +177,6 @@ int main()
     printf("[Total Consume] %ld us \r\n", t_us);
     printf("[Average Latency] %f us \r\n", avg);
     printf("Main Thread left \r\n");
+#endif
     return 0;
 }
