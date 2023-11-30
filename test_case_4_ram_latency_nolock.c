@@ -3,14 +3,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <sys/time.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/time.h>
 #include <pthread.h>
 
-#define DEBUG 0
-
-
+#define DEBUG_THIS_MODULE                             0
 struct test_params {
     void* addr;
 };
@@ -26,39 +24,32 @@ void* task1(void* arg)
 {
     struct test_params * p_param = (struct test_params *)arg;
     void* bar = p_param->addr;
-    int* val1_ref = bar;
-    int* val2_ref = val1_ref + 1;
+    int* val0_ref = bar;
+    int* val1_ref = val0_ref + 1;
+    int val0;
     int val1;
-    int val2;
-
-    int g_count = 0;
+    int count = 0;
     while(1)
 	{
-		pthread_mutex_lock(&mutex);
-        if(!g_init) {
-            //printf("[DEBUG] Task 1 do init \r\n");
-            g_init = 1;
-            val1 = *val1_ref = 0;
-            val2 = 0;
-            *val2_ref = 1;
-        } else {
-            val2 = *val2_ref -1;
-        }
-        val1 = *val1_ref = val1 + 1;
-#if DEBUG
-        printf("[Info] Thread 1 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
-#endif        
-        while(*val2_ref != val2 + 1);
-        val2 = val2 + 1;
-		pthread_cond_signal(&cond2);
-        if(++g_count > RUNNING_CYCLE_LIMITS) {
-            pthread_mutex_unlock(&mutex);
+        /**
+        ** This is the code for EP0, EP0 starts first
+        */
+        // EP0 should stop here until EP1 runs
+        // increase val0
+        val0 = *val0_ref = val0 + 1;
+#if DEBUG_THIS_MODULE
+        printf("[Before EP0] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
+        while(*val1_ref != val1 + 1);
+        val1 = val1 + 1;
+#if DEBUG_THIS_MODULE
+        printf("[After EP0] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
+        if(++count >= RUNNING_CYCLE_LIMITS) {
             break;
         }
-		pthread_cond_wait(&cond1,&mutex);
-		pthread_mutex_unlock(&mutex);
 	}
-    //printf("[DEBUG] Task 1 left \r\n");
+    printf("[DEBUG] Task 1 left \r\n");
     return NULL;
 }
 
@@ -67,37 +58,31 @@ void* task2(void* arg)
 {
     struct test_params * p_param = (struct test_params *)arg;
     void* bar = p_param->addr;
-    int* val1_ref = bar;
-    int* val2_ref = val1_ref + 1;
-    int val2;
+    int* val0_ref = bar;
+    int* val1_ref = val0_ref + 1;
+    int val0;
     int val1;
-    
-    int g_count = 0;
-
+    int count = 0;
     while(1){
-		pthread_mutex_lock(&mutex);
-        if(!g_init) {
-            //printf("[DEBUG] Task 2 do init \r\n");
-            g_init = 1;
-            val2 = *val2_ref = 0;
-            val1 = 0;
-            *val1_ref = 1;
-        } else {
-            val1 = *val1_ref -1;
-        }
-		val2 = *val2_ref = val2 + 1;
-		//printf("[Info] Thread 2 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
-        while(*val1_ref != val1 + 1);
-        val1 = val1 + 1;
-		pthread_cond_signal(&cond1);
-        if(++g_count > RUNNING_CYCLE_LIMITS) {
-            pthread_mutex_unlock(&mutex);
+        /**
+        ** This is the code for EP1, EP1 starts later
+        */
+#if DEBUG_THIS_MODULE
+        printf("[Before EP1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
+        // EP1 should stop here until EP0 runs
+        while(*val0_ref != val0 + 1);
+        // increase val1 first, so EP0 can continue to run
+        val1 = *val1_ref = val1 + 1;
+        val0 = val0 + 1;
+#if DEBUG_THIS_MODULE
+        printf("[EP1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
+        if(++count >= RUNNING_CYCLE_LIMITS) {
             break;
         }
-		pthread_cond_wait(&cond2,&mutex);
-		pthread_mutex_unlock(&mutex);
 	}
-    //printf("[DEBUG] Task 2 left \r\n");
+    printf("[DEBUG] Task 2 left \r\n");
 	return NULL;
 }
 
