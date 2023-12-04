@@ -9,8 +9,7 @@ TESTCASE8 ?= test_case_8_ram_bus_test.c
 TESTCASE9 ?= test_case_9_ram_pingpong.c
 TESTCASE10 ?= test_case_10_xdma.c
 TESTCASE11 ?= test_case_11_latency.c
-TESTCASE12 ?= test_case_12_ivshmem_test.c
-TESTCASE13 ?= test_case_13_ram_latency_nolock.c
+TESTCASE12 ?= test_case_12_pingpong.c
 
 all:
 	gcc ${TESTCASE1} -o test_case_1
@@ -39,4 +38,5 @@ clean:
 	rm test_case_10 -f
 	rm test_case_11_ep0 -f
 	rm test_case_11_ep1 -f
+	rm test_case_12 -f
 	rm test -f

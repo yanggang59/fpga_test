@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <string.h>
 
-#define UIO "uio0"
+#define UIO "uio1"
 
 #define UIO_DEV "/dev/"UIO
 
@@ -16,6 +16,9 @@
 #define UIO_ADDR1 "/sys/class/uio/"UIO"/maps/map1/addr"
 #define UIO_SIZE1 "/sys/class/uio/"UIO"/maps/map1/size"
 
+#define UIO_ADDR2 "/sys/class/uio/"UIO"/maps/map2/addr"
+#define UIO_SIZE2 "/sys/class/uio/"UIO"/maps/map2/size"
+
 
 
 static char uio_addr_buf[16], uio_size_buf[20];
@@ -23,6 +26,10 @@ static char uio_addr_buf[16], uio_size_buf[20];
 struct map_params {
     void* addr0;
     size_t size0;
+    void* addr1;
+    size_t size1;
+    void* addr2;
+    size_t size2;
 };
 
 void print_buf(char* buf, int len)
@@ -79,6 +86,60 @@ int read_uio_configs(struct map_params* params)
 
     printf("=====================================================\r\n");
 
+    addr_fd = open(UIO_ADDR1, O_RDONLY);
+    size_fd = open(UIO_SIZE1, O_RDONLY);
+    if( addr_fd < 0 || size_fd < 0 || uio_fd < 0) {
+        fprintf(stderr, "mmap: %s\n", strerror(errno));
+        exit(-1);
+    }
+    read(addr_fd, uio_addr_buf, sizeof(uio_addr_buf));
+    read(size_fd, uio_size_buf, sizeof(uio_size_buf));
+
+    close(addr_fd);
+    close(size_fd);
+
+    uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
+    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+
+    access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, getpagesize());
+
+    if (access_address == (void*) -1) {
+        fprintf(stderr, "mmap: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    params->addr1 = access_address;
+    params->size1 = uio_size;
+
+    printf("=====================================================\r\n");
+
+    addr_fd = open(UIO_ADDR2, O_RDONLY);
+    size_fd = open(UIO_SIZE2, O_RDONLY);
+    if( addr_fd < 0 || size_fd < 0 || uio_fd < 0) {
+        fprintf(stderr, "mmap: %s\n", strerror(errno));
+        exit(-1);
+    }
+    read(addr_fd, uio_addr_buf, sizeof(uio_addr_buf));
+    read(size_fd, uio_size_buf, sizeof(uio_size_buf));
+
+    close(addr_fd);
+    close(size_fd);
+
+    uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
+    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+
+    access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, getpagesize() * 2);
+
+    if (access_address == (void*) -1) {
+        fprintf(stderr, "mmap: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    params->addr2 = access_address;
+    params->size2 = uio_size;
+
+    printf("=====================================================\r\n");
+
     close(uio_fd);
 
     return 0;
@@ -94,10 +155,10 @@ int main()
         return -1;
     }
 
-    int* bar0 = params.addr0;
+    int* bar = params.addr1;
     for(int i = 1; i <= 1000; i++) {
-      *bar0 = i;
-      printf("bar0 = %d \r\n", *bar0); 
+      *bar = i;
+      printf("bar0 = %d \r\n", *bar); 
     }
     printf("The device address %p (lenth %ld)\n", params.addr0, params.size0);
     //printf("The device address %p (lenth %ld)\n", params.addr1, params.size1);

@@ -8,7 +8,8 @@
 #include <string.h>
 #include <pthread.h>
 
-#define DEBUG 0
+#define USING_THREAD_SYNC_METHOD           0
+#define DEBUG_THIS_MODULE                  0
 
 struct input_params {
     char* uio_dev;
@@ -155,18 +156,17 @@ void* task0(void* arg)
 {
     struct output_params* params = arg;
     void* bar = params->addr1;
+    int val0 = 0, val1 = 0;
     int* val0_ref = bar;
     int* val1_ref = val0_ref + 1;
-    int val0;
-    int val1;
-
-    int g_count = 0;
+    int count = 0;
     while(1)
 	{
+#if USING_THREAD_SYNC_METHOD
 		pthread_mutex_lock(&mutex);
         if(!g_init) {
-            printf("[DEBUG] Task 0 do init \r\n");
             g_init = 1;
+            printf("[DEBUG] Task 0 do init \r\n");
             val0 = *val0_ref = 0;
             val1 = 0;
             *val1_ref = 1;
@@ -174,18 +174,37 @@ void* task0(void* arg)
             val1 = *val1_ref - 1;
         }
         val0 = *val0_ref = val0 + 1;
-#if DEBUG
+#if DEBUG_THIS_MODULE
         printf("[Info] Thread 0 , val0_ref = %d, val0 = %d, val1_ref = %d, val1 = %d \n", *val0_ref, val0, *val1_ref, val1);
 #endif        
         while(*val1_ref != val1 + 1);
         val1 = val1 + 1;
 		pthread_cond_signal(&cond2);
-        if(++g_count > RUNNING_CYCLE_LIMITS) {
+        if(++count > RUNNING_CYCLE_LIMITS) {
             pthread_mutex_unlock(&mutex);
             break;
         }
 		pthread_cond_wait(&cond1,&mutex);
 		pthread_mutex_unlock(&mutex);
+#else
+        /**
+        ** This is the code for EP0, EP0 starts first
+        */
+        // EP0 should stop here until EP1 runs
+        // increase val0
+        val0 = *val0_ref = val0 + 1;
+#if DEBUG_THIS_MODULE
+        printf("[Before Task0] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
+        while(*val1_ref != val1 + 1);
+        val1 = val1 + 1;
+#if DEBUG_THIS_MODULE
+        printf("[After Task0] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
+        if(++count >= RUNNING_CYCLE_LIMITS) {
+            break;
+        }
+#endif
 	}
     printf("[DEBUG] Task 0 left \r\n");
     return NULL;
@@ -196,14 +215,13 @@ void* task1(void* arg)
 {
     struct output_params* params = arg;
     void* bar = params->addr1;
+    int val0 = 0, val1 = 0;
     int* val0_ref = bar;
     int* val1_ref = val0_ref + 1;
-    int val1;
-    int val0;
-    
-    int g_count = 0;
+    int count = 0;
 
     while(1){
+#if USING_THREAD_SYNC_METHOD
 		pthread_mutex_lock(&mutex);
         if(!g_init) {
             printf("[DEBUG] Task 1 do init \r\n");
@@ -215,18 +233,37 @@ void* task1(void* arg)
             val0 = *val0_ref - 1;
         }
 		val1 = *val1_ref = val1 + 1;
-#if DEBUG
+#if DEBUG_THIS_MODULE
 		printf("[Info] Thread 1 , val0_ref = %d, val0 = %d, val1_ref = %d, val1 = %d \n", *val0_ref, val0, *val1_ref, val1);
 #endif
         while(*val0_ref != val0 + 1);
         val0 = val0 + 1;
 		pthread_cond_signal(&cond1);
-        if(++g_count > RUNNING_CYCLE_LIMITS) {
+        if(++count > RUNNING_CYCLE_LIMITS) {
             pthread_mutex_unlock(&mutex);
             break;
         }
 		pthread_cond_wait(&cond2,&mutex);
 		pthread_mutex_unlock(&mutex);
+#else
+        /**
+        ** This is the code for EP1, EP1 starts later
+        */
+#if DEBUG_THIS_MODULE
+        printf("[Before Task1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
+        // EP1 should stop here until EP0 runs
+        while(*val0_ref != val0 + 1);
+        // increase val1 first, so EP0 can continue to run
+        val1 = *val1_ref = val1 + 1;
+        val0 = val0 + 1;
+#if DEBUG_THIS_MODULE
+        printf("[Task1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+#endif
+        if(++count >= RUNNING_CYCLE_LIMITS) {
+            break;
+        }
+#endif
 	}
     printf("[DEBUG] Task 1 left \r\n");
 	return NULL;
@@ -280,13 +317,13 @@ int main()
 
     err = pthread_create(&thread0, NULL, task0, &oparams0);
     if (err != 0) {
-        printf("[Error] can't create thread0");
+        printf("[Error] can't create thread1");
         return err;
     }
 
     err = pthread_create(&thread1, NULL, task1, &oparams1);
     if (err != 0) {
-        printf("[Error] can't create thread1");
+        printf("[Error] can't create thread2");
         return err;
     }
 
