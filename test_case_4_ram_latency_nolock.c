@@ -13,11 +13,8 @@ struct test_params {
     void* addr;
 };
 
-#define RUNNING_CYCLE_LIMITS     1000000
+#define RUNNING_CYCLE_LIMITS                          1000000
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
-pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
 int g_init = 0;
 
 void* task1(void* arg)
@@ -32,18 +29,18 @@ void* task1(void* arg)
     while(1)
 	{
         /**
-        ** This is the code for EP0, EP0 starts first
+        ** This is the code for Thread1, Thread1 starts first
         */
-        // EP0 should stop here until EP1 runs
+        // Thread1 should stop here until Thread2 runs
         // increase val0
         val0 = *val0_ref = val0 + 1;
 #if DEBUG_THIS_MODULE
-        printf("[Before EP0] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+        printf("[Before Thread1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
 #endif
         while(*val1_ref != val1 + 1);
         val1 = val1 + 1;
 #if DEBUG_THIS_MODULE
-        printf("[After EP0] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+        printf("[After Thread1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
 #endif
         if(++count >= RUNNING_CYCLE_LIMITS) {
             break;
@@ -65,18 +62,18 @@ void* task2(void* arg)
     int count = 0;
     while(1){
         /**
-        ** This is the code for EP1, EP1 starts later
+        ** This is the code for Thread2, Thread2 starts later
         */
 #if DEBUG_THIS_MODULE
-        printf("[Before EP1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+        printf("[Before Thread2] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
 #endif
-        // EP1 should stop here until EP0 runs
+        // Thread2 should stop here until Thread1 runs
         while(*val0_ref != val0 + 1);
-        // increase val1 first, so EP0 can continue to run
+        // increase val1 first, so Thread1 can continue to run
         val1 = *val1_ref = val1 + 1;
         val0 = val0 + 1;
 #if DEBUG_THIS_MODULE
-        printf("[EP1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
+        printf("[Thread2] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
 #endif
         if(++count >= RUNNING_CYCLE_LIMITS) {
             break;
