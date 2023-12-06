@@ -155,7 +155,7 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
 void* task0(void* arg)
 {
     struct output_params* params = arg;
-    void* bar = params->addr1;
+    void* bar = params->addr0;
     int val0 = 0, val1 = 0;
     int* val0_ref = bar;
     int* val1_ref = val0_ref + 1;
@@ -214,7 +214,7 @@ void* task0(void* arg)
 void* task1(void* arg)
 {
     struct output_params* params = arg;
-    void* bar = params->addr1;
+    void* bar = params->addr0;
     int val0 = 0, val1 = 0;
     int* val0_ref = bar;
     int* val1_ref = val0_ref + 1;

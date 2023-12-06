@@ -22,8 +22,9 @@ all:
 	gcc ${TESTCASE8} -o test_case_8
 	gcc ${TESTCASE9} -o test_case_9 -lpthread
 	gcc ${TESTCASE10} -o test_case_10
-	gcc ${TESTCASE11} -o test_case_11_ep0 -DEP0 -O0
-	gcc ${TESTCASE11} -o test_case_11_ep1 -DEP1 -O0
+	gcc ${TESTCASE11} -o test_case_11_ep0 -DEP0
+	gcc ${TESTCASE11} -o test_case_11_ep1 -DEP1
+	gcc ${TESTCASE12} -o test_case_12 -lpthread
 
 clean:
 	rm test_case_1 -f
