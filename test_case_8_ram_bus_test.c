@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <string.h>
 
-#define UIO "uio1"
+#define UIO "uio0"
 
 #define UIO_DEV "/dev/"UIO
 
@@ -155,12 +155,23 @@ int main()
         return -1;
     }
 
-    int* bar = params.addr1;
+    int* bar1 = params.addr1;
+    *(bar1 + 1) = 5;
+    int* test_space = (int*)((char*)bar1 + 68);
+    printf("**** Test DDR ****\r\n");
     for(int i = 1; i <= 1000; i++) {
-      *bar = i;
-      printf("bar0 = %d \r\n", *bar); 
+      *test_space = i;
+      printf("test_space = %d \r\n", *test_space);
     }
-    printf("The device address %p (lenth %ld)\n", params.addr0, params.size0);
+
+    //*bar1 = 1;
+
+    // printf("**** Test HBM ****\r\n");
+    // for(int i = 1; i <= 1; i++) {
+    //   *test_space = i;
+    //   printf("test_space = %d \r\n", *test_space);
+    // }
+    // printf("The device address %p (lenth %ld)\n", params.addr0, params.size0);
     //printf("The device address %p (lenth %ld)\n", params.addr1, params.size1);
  
     return 0;
