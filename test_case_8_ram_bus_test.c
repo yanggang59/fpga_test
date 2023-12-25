@@ -6,7 +6,12 @@
 #include <errno.h>
 #include <string.h>
 
-#define UIO "uio0"
+enum test_mode {
+  TEST_DDR = 0,
+  TEST_HBM = 1,
+};
+
+#define UIO "uio1"
 
 #define UIO_DEV "/dev/"UIO
 
@@ -154,25 +159,31 @@ int main()
         printf("[Error] read params error");
         return -1;
     }
-
+    enum test_mode test_mode = TEST_DDR;
     int* bar1 = params.addr1;
-    *(bar1 + 1) = 5;
-    int* test_space = (int*)((char*)bar1 + 68);
+    *(bar1) = test_mode;
+    int* test_space = (int*)((char*)bar1 + 0x100);
     printf("**** Test DDR ****\r\n");
     for(int i = 1; i <= 1000; i++) {
       *test_space = i;
+      if( *test_space != i) {
+        printf("[Error] *test_space = %d, expect %d\r\n", *test_space, i);
+        break;
+      }
       printf("test_space = %d \r\n", *test_space);
     }
-
-    //*bar1 = 1;
-
-    // printf("**** Test HBM ****\r\n");
-    // for(int i = 1; i <= 1; i++) {
-    //   *test_space = i;
-    //   printf("test_space = %d \r\n", *test_space);
-    // }
-    // printf("The device address %p (lenth %ld)\n", params.addr0, params.size0);
-    //printf("The device address %p (lenth %ld)\n", params.addr1, params.size1);
+    test_mode = TEST_HBM;
+    *bar1 = test_mode;
+    printf("**** Test HBM ****\r\n");
+    for(int i = 1; i <= 1000; i++) {
+      *test_space = i;
+      if( *test_space != i) {
+        printf("[Error] *test_space = %d, expect %d\r\n", *test_space, i);
+        break;
+      }
+      printf("test_space = %d \r\n", *test_space);
+    }
+    printf("The device address %p (lenth %ld)\n", params.addr0, params.size0);
  
     return 0;
 }
