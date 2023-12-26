@@ -9,9 +9,24 @@
 #include <pthread.h>
 
 #define DEBUG_THIS_MODULE                             0
+typedef unsigned long long u64;
 struct test_params {
     void* addr;
 };
+#define ULL (unsigned long long)
+//DDR [0-16GB]
+#define DDR_START           0
+#define DDR_SIZE            ULL(16ULL * 1024 * 1024 * 1024)
+#define DDR_END             ULL(DDR_START + DDR_SIZE)
+
+//HBM [16GB-20GB]
+#define HBM_START           ULL(16ULL * 1024 * 1024 * 1024)
+#define HBM_SIZE            ULL(4ULL * 1024 * 1024 * 1024)
+#define HBM_END             ULL(HBM_START + HBM_SIZE)
+
+#define TEST_DDR            1
+#define TEST_HBM            !TEST_DDR
+#define TEST_RAM            1
 
 #define RUNNING_CYCLE_LIMITS                          1000000
 
@@ -38,7 +53,7 @@ struct output_params {
 int read_uio_configs(struct input_params* iparams, struct output_params* oparams)
 {
     int uio_fd, addr_fd, size_fd;
-    int uio_size;
+    u64 uio_size;
     void* uio_addr, *access_address;
     char uio_addr_buf[64], uio_size_buf[64];
 
@@ -57,7 +72,7 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     close(size_fd);
 
     uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
-    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+    uio_size = (u64)strtol(uio_size_buf, NULL, 0);
 
     access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, 0);
 
@@ -84,7 +99,7 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     close(size_fd);
 
     uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
-    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+    uio_size = (u64)strtol(uio_size_buf, NULL, 0);
 
     access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, getpagesize());
 
@@ -111,7 +126,7 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     close(size_fd);
 
     uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
-    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+    uio_size = (u64)strtol(uio_size_buf, NULL, 0);
 
     access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, getpagesize() * 2);
 
@@ -204,6 +219,10 @@ int main()
     float avg;
     unsigned long t_us;
 
+#if TEST_RAM
+    char* ram = malloc(4096);
+#endif
+
     struct output_params oparams0 = {0};
 
     struct input_params iparams0 = {
@@ -221,11 +240,19 @@ int main()
         return -1;
     }
 
-    printf("Creating 2 Tasks \r\n");
-
     struct timeval tv_start, tv_end;
+#if TEST_RAM
+    param.addr = (char*)ram + 0x100;
+#else
+#if TEST_DDR
     param.addr = (char*)oparams0.addr1 + 0x100;
-
+    printf("[Info] Test DDR , Single EP IO Latency Test\r\n");
+#endif
+#if TEST_HBM
+    param.addr = (char*)oparams0.addr1 + HBM_START + 0x100;
+    printf("[Info] Test HBM , Single EP IO Latency Test\r\n");
+#endif
+#endif
     if (gettimeofday(&tv_start, NULL) == -1) {
         printf("[Error] gettimeofday start failed \r\n");
         return -1;
@@ -250,6 +277,9 @@ int main()
         printf("[Error] gettimeofday end failed \r\n");
         return -1;
     }
+#if TEST_RAM
+    free(ram);
+#endif
     t_us = tv_end.tv_sec * 1000000 + tv_end.tv_usec - (tv_start.tv_sec * 1000000 + tv_start.tv_usec);
     avg = ((float)t_us)/1000000/4;
     printf("[Total Consume] %ld us \r\n", t_us);

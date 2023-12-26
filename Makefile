@@ -21,7 +21,7 @@ all:
 	gcc ${TESTCASE5} -o test_case_5 -lpthread
 	gcc ${TESTCASE6} -o test_case_6 -lpthread
 	gcc ${TESTCASE7} -o test_case_7
-	gcc ${TESTCASE8} -o test_case_8
+	gcc ${TESTCASE8} -o test_case_8 -g
 	gcc ${TESTCASE9} -o test_case_9 -lpthread
 	gcc ${TESTCASE10} -o test_case_10
 	gcc ${TESTCASE11} -o test_case_11_ep0 -DEP0

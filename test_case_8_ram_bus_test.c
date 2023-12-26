@@ -5,13 +5,27 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
-enum test_mode {
-  TEST_DDR = 0,
-  TEST_HBM = 1,
-};
+typedef unsigned long long u64;
+#define ULL (unsigned long long)
 
-#define UIO "uio1"
+//DDR [0-16GB]
+#define DDR_START           0
+#define DDR_SIZE            ULL(16ULL * 1024 * 1024 * 1024)
+#define DDR_END             ULL(DDR_START + DDR_SIZE)
+
+//HBM [16GB-20GB]
+#define HBM_START           ULL(16ULL * 1024 * 1024 * 1024)
+#define HBM_SIZE            ULL(4ULL * 1024 * 1024 * 1024)
+#define HBM_END             ULL(HBM_START + HBM_SIZE)
+
+#define TEST_DDR               1
+#define TEST_HBM               1
+#define DEBUG_THIS_MODULE      1
+
+
+#define UIO "uio0"
 
 #define UIO_DEV "/dev/"UIO
 
@@ -58,7 +72,7 @@ void print_buf(char* buf, int len)
 int read_uio_configs(struct map_params* params)
 {
     int uio_fd, addr_fd, size_fd;
-    int uio_size;
+    u64 uio_size;
     void* uio_addr, *access_address;
     char uio_addr_buf[64], uio_size_buf[64];
 
@@ -82,7 +96,7 @@ int read_uio_configs(struct map_params* params)
     access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, 0);
 
     if (access_address == (void*) -1) {
-        fprintf(stderr, "mmap: %s\n", strerror(errno));
+        fprintf(stderr, "mmap0: %s\n", strerror(errno));
         exit(-1);
     }
 
@@ -104,12 +118,12 @@ int read_uio_configs(struct map_params* params)
     close(size_fd);
 
     uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
-    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+    uio_size = strtol(uio_size_buf, NULL, 0);
 
     access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, getpagesize());
 
     if (access_address == (void*) -1) {
-        fprintf(stderr, "mmap: %s\n", strerror(errno));
+        fprintf(stderr, "mmap1: %s\n", strerror(errno));
         exit(-1);
     }
 
@@ -136,7 +150,7 @@ int read_uio_configs(struct map_params* params)
     access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, getpagesize() * 2);
 
     if (access_address == (void*) -1) {
-        fprintf(stderr, "mmap: %s\n", strerror(errno));
+        fprintf(stderr, "mmap2: %s\n", strerror(errno));
         exit(-1);
     }
 
@@ -154,36 +168,57 @@ int read_uio_configs(struct map_params* params)
 int main()
 {
     struct map_params params = {0};
+    u64 offset;
+    u64 test_cnt;
+    int* test_space;
+    int r;
 
+    // set random seed
+    srand(time(NULL));
     if(read_uio_configs(&params)) {
         printf("[Error] read params error");
         return -1;
     }
-    enum test_mode test_mode = TEST_DDR;
     int* bar1 = params.addr1;
-    *(bar1) = test_mode;
-    int* test_space = (int*)((char*)bar1 + 0x100);
+#if TEST_DDR
+    test_cnt = 0;
     printf("**** Test DDR ****\r\n");
-    for(int i = 1; i <= 1000; i++) {
-      *test_space = i;
-      if( *test_space != i) {
-        printf("[Error] *test_space = %d, expect %d\r\n", *test_space, i);
-        break;
-      }
-      printf("test_space = %d \r\n", *test_space);
+    for(offset = DDR_START; offset < DDR_END; offset +=4) {
+        test_space = (int*)((char*)bar1 + offset);
+        r = rand();
+        *test_space = r;
+        if( *test_space != r) {
+            printf("[Error] Test DDR : offset = %lld, *test_space = %d, expect %d\r\n", offset, *test_space, r);
+            goto error;
+        }
+#if DEBUG_THIS_MODULE
+        if((test_cnt++) % (1024 * 1024) == 0)
+            printf("[Info] Test DDR : offset = %lld, *test_space = %d, expect %d\r\n", offset, *test_space, r);
+#endif
     }
-    test_mode = TEST_HBM;
-    *bar1 = test_mode;
+#endif
+
+#if TEST_HBM
     printf("**** Test HBM ****\r\n");
-    for(int i = 1; i <= 1000; i++) {
-      *test_space = i;
-      if( *test_space != i) {
-        printf("[Error] *test_space = %d, expect %d\r\n", *test_space, i);
-        break;
-      }
-      printf("test_space = %d \r\n", *test_space);
+    test_cnt = 0;
+    for(offset = HBM_START; offset < HBM_END; offset += 4) {
+        test_space = (int*)((char*)bar1 + offset);
+        r = rand();
+        int read_val;
+        *test_space = r;
+        read_val = *test_space;
+        if( read_val != r) {
+            printf("[Error] Test HBM : offset = %lld, read_val = %d, expect %d\r\n", offset, read_val, r);
+            goto error;
+        }
+#if DEBUG_THIS_MODULE
+        if((test_cnt++) % (1024 * 1024) == 0)
+            printf("[Info] Test HBM : offset = %lld, *test_space = %d, expect %d\r\n", offset, *test_space, r);
+#endif
     }
-    printf("The device address %p (lenth %ld)\n", params.addr0, params.size0);
- 
+#endif
+    printf("[Info] IO Test Done \r\n");
     return 0;
+error:
+    return -1;
 }

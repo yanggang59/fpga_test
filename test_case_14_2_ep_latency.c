@@ -9,11 +9,22 @@
 #include <pthread.h>
 
 typedef unsigned int uint32_t;
+typedef unsigned long long u64;
 
-enum test_mode {
-  TEST_DDR = 0,
-  TEST_HBM = 1,
-};
+#define ULL (unsigned long long)
+#define TEST_DDR               1
+#define TEST_HBM               !TEST_DDR
+
+//DDR [0-16GB]
+#define DDR_START           0
+#define DDR_SIZE            ULL(4ULL * 1024 * 1024 * 1024)
+#define DDR_END             ULL(DDR_START + DDR_SIZE)
+
+//HBM [16GB-20GB]
+#define HBM_START           ULL(16ULL * 1024 * 1024 * 1024)
+#define HBM_SIZE            ULL(4ULL * 1024 * 1024 * 1024)
+#define HBM_END             ULL(HBM_START + HBM_SIZE)
+
 
 #define DEBUG_THIS_MODULE                             0
 struct test_params {
@@ -46,7 +57,7 @@ struct output_params {
 int read_uio_configs(struct input_params* iparams, struct output_params* oparams)
 {
     int uio_fd, addr_fd, size_fd;
-    int uio_size;
+    u64 uio_size;
     void* uio_addr, *access_address;
     char uio_addr_buf[64], uio_size_buf[64];
 
@@ -65,7 +76,7 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     close(size_fd);
 
     uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
-    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+    uio_size = (u64)strtol(uio_size_buf, NULL, 0);
 
     access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, 0);
 
@@ -92,7 +103,7 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     close(size_fd);
 
     uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
-    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+    uio_size = (u64)strtol(uio_size_buf, NULL, 0);
 
     access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, getpagesize());
 
@@ -119,7 +130,7 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     close(size_fd);
 
     uio_addr = (void *)strtoul(uio_addr_buf, NULL, 0);
-    uio_size = (int)strtol(uio_size_buf, NULL, 0);
+    uio_size = (u64)strtol(uio_size_buf, NULL, 0);
 
     access_address = mmap(NULL, uio_size, PROT_READ | PROT_WRITE, MAP_SHARED, uio_fd, getpagesize() * 2);
 
@@ -211,7 +222,6 @@ int main()
     struct test_params param = {0};
     float avg;
     unsigned long t_us;
-    enum test_mode test_mode = 0;
 
     struct output_params oparams0 = {0};
     struct output_params oparams1 = {0};
@@ -247,21 +257,20 @@ int main()
     }
 
     struct timeval tv_start, tv_end;
+#if TEST_DDR
     param.addr0 = (char*)oparams0.addr1 + 0x100;
     param.addr1 = (char*)oparams1.addr1 + 0x100;
+#elif TEST_HBM
+    param.addr0 = (char*)oparams0.addr1 + HBM_START + 0x100;
+    param.addr1 = (char*)oparams1.addr1 + HBM_START + 0x100;
+#endif
+    int* val0 = param.addr0;
+    int* val1 = val0 + 1;
+    *val0 = 0;
+    *val1 = 0;
+    sleep(1);
+    printf("val0 = %d val1 = %d\r\n", *val0, *val1);
 
-    test_mode = TEST_HBM;
-
-    *((uint32_t *)oparams0.addr1) = test_mode;
-    *((uint32_t *)oparams1.addr1) = test_mode;
-    if((*((uint32_t *)oparams0.addr1) == TEST_DDR) && (*((uint32_t *)oparams1.addr1) == TEST_DDR)) {
-        printf("[Info] Test DDR \r\n");
-    }else if((*((uint32_t *)oparams0.addr1) == TEST_HBM) && (*((uint32_t *)oparams1.addr1) == TEST_HBM)) {
-        printf("[Info] Test HBM \r\n");
-    } else {
-        printf("[Error] Wrong Mode \r\n");
-        return -1;
-    }
  
     if (gettimeofday(&tv_start, NULL) == -1) {
         printf("[Error] gettimeofday start failed \r\n");
@@ -292,5 +301,4 @@ int main()
     printf("[Info] Total Consume %ld us \r\n", t_us);
     printf("[Info] Average Latency %f us \r\n", avg);
     printf("[Info] Main Thread left \r\n");
-
 }
