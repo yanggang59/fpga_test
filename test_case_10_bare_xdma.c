@@ -40,6 +40,7 @@ struct output_params {
     size_t size3;
     void* addr4;
     size_t size4;
+    int uio_fd;
 };
 
 struct dma_parmas{
@@ -93,8 +94,6 @@ struct dma_parmas{
 #define XDMA_CTRL_IE_READ_ERROR			    (0x1FUL << 9)
 #define XDMA_CTRL_IE_DESC_ERROR			    (0x1FUL << 19)
 #define XDMA_CTRL_NON_INCR_ADDR			    (1UL << 25)
-#define XDMA_CTRL_POLL_MODE_WB			    (1UL << 26)
-#define XDMA_CTRL_STM_MODE_WB			    (1UL << 27)
 
 
 #define DEBUG_DEVICE_FILE "/dev/debug"
@@ -324,30 +323,22 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     oparams->addr4 = access_address;
     oparams->size4 = uio_size;
 
-    close(uio_fd);
+    oparams->uio_fd = uio_fd;
 
     return 0;
 }
 
-static void config_control(void* base_addr)
-{
-    write_reg(base_addr, H2C_0_REG_BASE_OFF | CONTROL_OFF, 0b1111);
-    write_reg(base_addr, H2C_1_REG_BASE_OFF | CONTROL_OFF, 0b1111);
-    write_reg(base_addr, C2H_0_REG_BASE_OFF | CONTROL_OFF, 0b1111);
-    write_reg(base_addr, C2H_1_REG_BASE_OFF | CONTROL_OFF, 0b1111);
-}
-
 static void enable_interrupt(void* base_addr)
 {
-    write_reg(base_addr, H2C_0_REG_BASE_OFF | CHA_INT_ENA, 0b100);
-    write_reg(base_addr, H2C_1_REG_BASE_OFF | CHA_INT_ENA, 0b100);
-    write_reg(base_addr, C2H_0_REG_BASE_OFF | CHA_INT_ENA, 0b100);
-    write_reg(base_addr, C2H_1_REG_BASE_OFF | CHA_INT_ENA, 0b100);
+    write_reg(base_addr, H2C_0_REG_BASE_OFF | CHA_INT_ENA, 0x110);
+    write_reg(base_addr, H2C_1_REG_BASE_OFF | CHA_INT_ENA, 0x110);
+    write_reg(base_addr, C2H_0_REG_BASE_OFF | CHA_INT_ENA, 0x110);
+    write_reg(base_addr, C2H_1_REG_BASE_OFF | CHA_INT_ENA, 0x110);
 }
 
 static void config_irq_block_reg(void* base_addr)
 {
-    write_reg(base_addr, IRQ_BLK_REG_BASE_OFF | CHA_INT_ENA_W1S_OFF , ~0);
+    write_reg(base_addr, IRQ_BLK_REG_BASE_OFF | CHA_INT_ENA_W1S_OFF , 0b1111);
 }
 
 uint32_t swap32(uint32_t value)
@@ -436,12 +427,6 @@ int main()
     printf("**** DMA1 *****\r\n");
     print_buf(oparams0.addr4, 16);
 
-    /**
-    * To config DMA Engine of XDMA for EP0, In BAR1
-    */
-    // CONTROL REG: DMA0, H2C0, H2C1, C2H0, C2H1
-    //config_control(xdma0_config_bar);
-
     // IRQ Block
     config_irq_block_reg(xdma0_config_bar);
 
@@ -478,6 +463,7 @@ int main()
     ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_1_REG_BASE_OFF | STATUS_REG_OFF);
     printf("After DMA , ep0_h2c1_status = %d \r\n", ep0_h2c1_status);
 
+    close(oparams0.uio_fd);
     munmap(oparams0.addr0, oparams0.size0);
     munmap(oparams0.addr1, oparams0.size1);
     munmap(oparams0.addr2, oparams0.size2);
