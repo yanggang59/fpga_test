@@ -14,11 +14,15 @@ typedef unsigned long long u64;
 #define DDR_START           0
 #define DDR_SIZE            ULL(16ULL * 1024 * 1024 * 1024)
 #define DDR_END             ULL(DDR_START + DDR_SIZE)
+#define DDR_TEST_SIZE       ULL(1ULL * 1024 * 1024 * 1024)
+#define DDR_TEST_END        ULL(DDR_START + DDR_TEST_SIZE)
 
 //HBM [16GB-20GB]
 #define HBM_START           ULL(16ULL * 1024 * 1024 * 1024)
 #define HBM_SIZE            ULL(4ULL * 1024 * 1024 * 1024)
 #define HBM_END             ULL(HBM_START + HBM_SIZE)
+#define HBM_TEST_SIZE       ULL(1ULL * 1024 * 1024 * 1024)
+#define HBM_TEST_END        ULL(HBM_START + HBM_TEST_SIZE)
 
 #define TEST_DDR               1
 #define TEST_HBM               1
@@ -183,7 +187,7 @@ int main()
 #if TEST_DDR
     test_cnt = 0;
     printf("**** Test DDR ****\r\n");
-    for(offset = DDR_START; offset < DDR_END; offset +=4) {
+    for(offset = DDR_START; offset < DDR_TEST_END; offset +=4) {
         test_space = (int*)((char*)bar1 + offset);
         r = rand();
         *test_space = r;
@@ -201,7 +205,7 @@ int main()
 #if TEST_HBM
     printf("**** Test HBM ****\r\n");
     test_cnt = 0;
-    for(offset = HBM_START; offset < HBM_END; offset += 4) {
+    for(offset = HBM_START; offset < HBM_TEST_END; offset += 4) {
         test_space = (int*)((char*)bar1 + offset);
         r = rand();
         int read_val;

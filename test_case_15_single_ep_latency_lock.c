@@ -3,16 +3,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <errno.h>
 #include <string.h>
-#include <sys/time.h>
 #include <pthread.h>
 
-#define DEBUG_THIS_MODULE                             0
 typedef unsigned long long u64;
 struct test_params {
     void* addr;
 };
+
 #define ULL (unsigned long long)
 //DDR [0-16GB]
 #define DDR_START           0
@@ -26,12 +26,36 @@ struct test_params {
 
 #define TEST_DDR            1
 #define TEST_HBM            !TEST_DDR
-#define TEST_RAM            0
+#define TEST_RAM            1
 
-#define SOFT_WORKAROUND     0
-#define INVALID_VALUE       -1
+#define DEBUG 0
 
-#define RUNNING_CYCLE_LIMITS                          1000000
+
+#define RUNNING_CYCLE_LIMITS     1000000
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
+
+int g_running_cycles = 0;
+volatile int g_init = 0;
+
+void print_buf(char* buf, int len)
+{
+  printf("**************************************************************************************\r\n");
+  printf("     ");
+  for(int i = 0; i < 16; i++) 
+    printf("%4X ", i);
+
+  for(int j = 0; j < len; j++) {
+    if(j % 16 == 0) {
+      printf("\n%4X ", j);
+    }
+    printf("%4X ", buf[j]);
+  }
+
+  printf("\n**************************************************************************************\r\n");
+}
 
 struct input_params {
     char* uio_dev;
@@ -148,40 +172,42 @@ int read_uio_configs(struct input_params* iparams, struct output_params* oparams
     return 0;
 }
 
+
 void* task1(void* arg)
 {
     struct test_params * p_param = (struct test_params *)arg;
-    void* bar = p_param->addr;
-    int* val0_ref = bar;
-    int* val1_ref = val0_ref + 1;
-    int val0;
+    void* bar0 = p_param->addr;
+    int* val1_ref = bar0;
+    int* val2_ref = val1_ref + 1;
     int val1;
-    int count = 0;
-    int read_val;
+    int val2;
+
+    int g_count = 0;
     while(1)
 	{
-        /**
-        ** This is the code for Thread1, Thread1 starts first
-        */
-        // Thread1 should stop here until Thread2 runs
-        // increase val0
-         *val0_ref = val0 = val0 + 1;
-#if DEBUG_THIS_MODULE
-        printf("[Before Thread1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
-#endif
-#if SOFT_WORKAROUND
-        while((read_val = *val1_ref) == INVALID_VALUE) {
-            printf("[Task1 While] read_val = %d \r\n", read_val);
+		pthread_mutex_lock(&mutex);
+        if(!g_init) {
+            printf("[DEBUG] Task 1 do init \r\n");
+            g_init = 1;
+            val1 = *val1_ref = 0;
+            val2 = 0;
+            *val2_ref = 1;
+        } else {
+            val2 = *val2_ref -1;
         }
-#endif
-        while(*val1_ref != val1 + 1);
-        val1 = val1 + 1;
-#if DEBUG_THIS_MODULE
-        printf("[After Thread1] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
-#endif
-        if(++count >= RUNNING_CYCLE_LIMITS) {
+        val1 = *val1_ref = val1 + 1;
+#if DEBUG
+        printf("[Info] Thread 1 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+#endif        
+        while(*val2_ref != val2 + 1);
+        val2 = val2 + 1;
+		pthread_cond_signal(&cond2);
+        if(++g_count > RUNNING_CYCLE_LIMITS) {
+            pthread_mutex_unlock(&mutex);
             break;
         }
+		pthread_cond_wait(&cond1,&mutex);
+		pthread_mutex_unlock(&mutex);
 	}
     printf("[DEBUG] Task 1 left \r\n");
     return NULL;
@@ -191,37 +217,36 @@ void* task1(void* arg)
 void* task2(void* arg)
 {
     struct test_params * p_param = (struct test_params *)arg;
-    void* bar = p_param->addr;
-    int* val0_ref = bar;
-    int* val1_ref = val0_ref + 1;
-    int val0;
+    void* bar2 = p_param->addr;
+    int* val1_ref = bar2;
+    int* val2_ref = val1_ref + 1;
+    int val2;
     int val1;
-    int count = 0;
-    int read_val;
+    
+    int g_count = 0;
+
     while(1){
-        /**
-        ** This is the code for Thread2, Thread2 starts later
-        */
-#if DEBUG_THIS_MODULE
-        printf("[Before Thread2] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
-#endif
-        // Thread2 should stop here until Thread1 runs
-        while(*val0_ref != val0 + 1);
-        // increase val1 first, so Thread1 can continue to run
-        *val1_ref = val1 + 1;
-#if SOFT_WORKAROUND
-        while((read_val = *val1_ref) == INVALID_VALUE) {
-            printf("[Task2 While] read_val = %d \r\n", read_val);
+		pthread_mutex_lock(&mutex);
+        if(!g_init) {
+            printf("[DEBUG] Task 2 do init \r\n");
+            g_init = 1;
+            val2 = *val2_ref = 0;
+            val1 = 0;
+            *val1_ref = 1;
+        } else {
+            val1 = *val1_ref -1;
         }
-#endif
-        val1 = *val1_ref;
-        val0 = val0 + 1;
-#if DEBUG_THIS_MODULE
-        printf("[Thread2] val0 = %d , val1 = %d , count = %d \r\n", val0, val1, count);
-#endif
-        if(++count >= RUNNING_CYCLE_LIMITS) {
+		val2 = *val2_ref = val2 + 1;
+		//printf("[Info] Thread 2 , val1_ref = %d, val1 = %d, val2_ref = %d, val2 = %d \n", *val1_ref, val1, *val2_ref, val2);
+        while(*val1_ref != val1 + 1);
+        val1 = val1 + 1;
+		pthread_cond_signal(&cond1);
+        if(++g_count > RUNNING_CYCLE_LIMITS) {
+            pthread_mutex_unlock(&mutex);
             break;
         }
+		pthread_cond_wait(&cond2,&mutex);
+		pthread_mutex_unlock(&mutex);
 	}
     printf("[DEBUG] Task 2 left \r\n");
 	return NULL;
@@ -235,9 +260,6 @@ int main()
     float avg;
     unsigned long t_us;
 
-#if TEST_RAM
-    char* ram = malloc(4096);
-#endif
 
     struct output_params oparams0 = {0};
 
@@ -250,17 +272,12 @@ int main()
         .uio_addr2 = "/sys/class/uio/uio0/maps/map2/addr",
         .uio_size2 = "/sys/class/uio/uio0/maps/map2/size",
     };
-#if !TEST_RAM
+
     if(read_uio_configs(&iparams0, &oparams0)) {
         printf("[Error] read params 1 error");
         return -1;
     }
-#endif
-    struct timeval tv_start, tv_end;
-#if TEST_RAM
-    param.addr = (char*)ram + 0x100;
-    printf("[Info] Test Local RAM , Single EP IO Latency Test\r\n");
-#else
+
 #if TEST_DDR
     param.addr = (char*)oparams0.addr1 + 0x100;
     printf("[Info] Test DDR , Single EP IO Latency Test\r\n");
@@ -269,7 +286,9 @@ int main()
     param.addr = (char*)oparams0.addr1 + HBM_START + 0x100;
     printf("[Info] Test HBM , Single EP IO Latency Test\r\n");
 #endif
-#endif
+
+    struct timeval tv_start, tv_end;
+
     if (gettimeofday(&tv_start, NULL) == -1) {
         printf("[Error] gettimeofday start failed \r\n");
         return -1;
@@ -294,9 +313,6 @@ int main()
         printf("[Error] gettimeofday end failed \r\n");
         return -1;
     }
-#if TEST_RAM
-    free(ram);
-#endif
     t_us = tv_end.tv_sec * 1000000 + tv_end.tv_usec - (tv_start.tv_sec * 1000000 + tv_start.tv_usec);
     avg = ((float)t_us)/1000000/4;
     printf("[Total Consume] %ld us \r\n", t_us);
