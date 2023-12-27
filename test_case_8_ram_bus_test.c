@@ -192,12 +192,12 @@ int main()
         r = rand();
         *test_space = r;
         if( *test_space != r) {
-            printf("[Error] Test DDR : offset = %lld, *test_space = %d, expect %d\r\n", offset, *test_space, r);
+            printf("[Error] Test DDR : offset = %#llx, *test_space = %d, expect %d\r\n", offset, *test_space, r);
             goto error;
         }
 #if DEBUG_THIS_MODULE
         if((test_cnt++) % (1024 * 1024) == 0)
-            printf("[Info] Test DDR : offset = %lld, *test_space = %d, expect %d\r\n", offset, *test_space, r);
+            printf("[Info] Test DDR : offset = %#llx, *test_space = %d, expect %d\r\n", offset, *test_space, r);
 #endif
     }
 #endif
@@ -212,12 +212,12 @@ int main()
         *test_space = r;
         read_val = *test_space;
         if( read_val != r) {
-            printf("[Error] Test HBM : offset = %lld, read_val = %d, expect %d\r\n", offset, read_val, r);
+            printf("[Error] Test HBM : offset = %#llx, read_val = %d, expect %d\r\n", offset, read_val, r);
             goto error;
         }
 #if DEBUG_THIS_MODULE
         if((test_cnt++) % (1024 * 1024) == 0)
-            printf("[Info] Test HBM : offset = %lld, *test_space = %d, expect %d\r\n", offset, *test_space, r);
+            printf("[Info] Test HBM : offset = %#llx, *test_space = %d, expect %d\r\n", offset, *test_space, r);
 #endif
     }
 #endif

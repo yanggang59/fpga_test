@@ -16,7 +16,7 @@ typedef unsigned long long u64;
 #define TEST_HBM               !TEST_DDR
 
 //DDR [0-16GB]
-#define DDR_START           0
+#define DDR_START           1
 #define DDR_SIZE            ULL(4ULL * 1024 * 1024 * 1024)
 #define DDR_END             ULL(DDR_START + DDR_SIZE)
 
@@ -260,16 +260,16 @@ int main()
 #if TEST_DDR
     param.addr0 = (char*)oparams0.addr1 + 0x100;
     param.addr1 = (char*)oparams1.addr1 + 0x100;
+    printf("[Info] Test DDR , 2 EP IO Latency Test\r\n");
 #elif TEST_HBM
     param.addr0 = (char*)oparams0.addr1 + HBM_START + 0x100;
     param.addr1 = (char*)oparams1.addr1 + HBM_START + 0x100;
+    printf("[Info] Test HBM , 2 EP IO Latency Test\r\n");
 #endif
     int* val0 = param.addr0;
     int* val1 = val0 + 1;
     *val0 = 0;
     *val1 = 0;
-    sleep(1);
-    printf("val0 = %d val1 = %d\r\n", *val0, *val1);
 
  
     if (gettimeofday(&tv_start, NULL) == -1) {
