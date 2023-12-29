@@ -417,7 +417,7 @@ int main()
     }
 
     uint32_t cfg_blk_msi_ena0;
-    uint32_t ep0_h2c1_status;
+    uint32_t ep0_h2c0_status;
 
     void* xdma0_config_bar = oparams0.addr1;  // BAR1 ---- 64K
 
@@ -439,8 +439,8 @@ int main()
     cfg_blk_msi_ena0 = read_reg(xdma0_config_bar, CFG_BLK_REG_BASE_OFF | CFG_BLK_MSI_ENABLE_OFF);
     printf("[Info] cfg_blk_msi_ena0 = %d\r\n", cfg_blk_msi_ena0);
 
-    ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_1_REG_BASE_OFF | STATUS_REG_OFF);
-    printf("Before DMA , ep0_h2c1_status = %d \r\n", ep0_h2c1_status);
+    ep0_h2c0_status = read_reg(xdma0_config_bar, H2C_0_REG_BASE_OFF | STATUS_REG_OFF);
+    printf("Before DMA , ep0_h2c0_status = %#x \r\n", ep0_h2c0_status);
 
     /**
     * DMA from Host to device
@@ -460,8 +460,8 @@ int main()
     printf("**** DMA1 *****\r\n");
     print_buf(oparams0.addr4, 16);
 
-    ep0_h2c1_status = read_reg(xdma0_config_bar, H2C_1_REG_BASE_OFF | STATUS_REG_OFF);
-    printf("After DMA , ep0_h2c1_status = %d \r\n", ep0_h2c1_status);
+    ep0_h2c0_status = read_reg(xdma0_config_bar, H2C_0_REG_BASE_OFF | STATUS_REG_OFF);
+    printf("After DMA , ep0_h2c0_status = %#x \r\n", ep0_h2c0_status);
 
     close(oparams0.uio_fd);
     munmap(oparams0.addr0, oparams0.size0);
