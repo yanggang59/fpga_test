@@ -13,6 +13,7 @@ TESTCASE12 ?= test_case_12_pingpong.c
 TESTCASE13 ?= test_case_13_single_ep_latency.c
 TESTCASE14 ?= test_case_14_2_ep_latency.c
 TESTCASE15 ?= test_case_15_single_ep_latency_lock.c
+TESTCASE16 ?= test_case_16_single_ep_no_lock.c
 
 all:
 	gcc ${TESTCASE1} -o test_case_1
@@ -31,6 +32,7 @@ all:
 	gcc ${TESTCASE13} -o test_case_13 -lpthread
 	gcc ${TESTCASE14} -o test_case_14 -lpthread
 	gcc ${TESTCASE15} -o test_case_15 -lpthread
+	gcc ${TESTCASE16} -o test_case_16 -lpthread
 
 clean:
 	rm test_case_1 -f
@@ -49,3 +51,4 @@ clean:
 	rm test_case_13 -f
 	rm test_case_14 -f
 	rm test_case_15 -f
+	rm test_case_16 -f

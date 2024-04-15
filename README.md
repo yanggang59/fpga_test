@@ -1,4 +1,10 @@
-## 1.This is the demo code for uio driver of FGPA
+## 1.Load driver
+
+```
+sudo ./load_igb.sh VID DID
+```
+
+VID is the Vendor ID, DID is the Device ID. Using igb_uio driver, please modify the driver location accordingly.
 
 ## 2.Content Explanation
 
@@ -21,4 +27,14 @@
 
 (10) test 10 is to test xdma function not using XDMA Official Driver, modified base on test 7 ,not finished yet
 
-(11) test 11 is to test FuDanWei 2 Host accessing its sharing bar EP latency without using lock, will create 2 binary for EP0 and EP1, EP0 runs first   
+(11) test 11 is to test FuDanWei 2 Host accessing its sharing bar EP latency without using lock, will create 2 binary for EP0 and EP1, EP0 runs first 
+
+(12)
+
+(13)
+
+(14)
+
+(15)
+
+(16) Test single EP read/write latency
